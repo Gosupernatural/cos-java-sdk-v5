@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.internal;
 
 import java.util.Collections;
@@ -6,14 +24,24 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.event.ProgressListener;
 
 public class CosServiceRequest implements Cloneable, ReadLimitInfo  {
-    
+    /**
+     * Request related key information
+     */
+    private COSCredentials cosCredentials;
     /**
      * The optional progress listener for receiving updates about the progress of the request.
      */
+
     private ProgressListener progressListener = ProgressListener.NOOP;
+    /**
+     * The mannually set cos server ip and port, format is ip:port
+     */
+    private String fixedEndpointAddr;
+
     /**
      * A map of custom header names to header values.
      */
@@ -23,14 +51,14 @@ public class CosServiceRequest implements Cloneable, ReadLimitInfo  {
      * Custom query parameters for the request.
      */
     private Map<String, List<String>> customQueryParameters;
-    
+
     private final RequestClientOptions requestClientOptions = new RequestClientOptions();
     
     /**
      * The source object from which the current object was cloned; or null if there isn't one.
      */
     private CosServiceRequest cloneSource;
-    
+
     /**
      * Sets the optional progress listener for receiving updates about the progress of the request.
      *
@@ -51,7 +79,25 @@ public class CosServiceRequest implements Cloneable, ReadLimitInfo  {
     public ProgressListener getGeneralProgressListener() {
         return progressListener;
     }
-    
+
+    /**
+     * Sets the cos server ip and port .
+     *
+     * @param fixedEndpointAddr
+     *              ip and port string, format is ip:port
+     */
+    public void setFixedEndpointAddr(String fixedEndpointAddr) {
+        this.fixedEndpointAddr = fixedEndpointAddr;
+    }
+
+    /**
+     * Returns the setted server ip and port.
+     *
+     * @return The setted ip and port string
+     */
+    public String getFixedEndpointAddr() {
+        return fixedEndpointAddr;
+    }
     /**
      * Sets the optional progress listener for receiving updates about the progress of the request,
      * and returns a reference to this object so that method calls can be chained together.
@@ -219,4 +265,11 @@ public class CosServiceRequest implements Cloneable, ReadLimitInfo  {
         }
     }
 
+    public COSCredentials getCosCredentials() {
+        return cosCredentials;
+    }
+
+    public void setCosCredentials(COSCredentials cosCredentials) {
+        this.cosCredentials = cosCredentials;
+    }
 }

@@ -1,4 +1,24 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.model;
+
+import com.qcloud.cos.model.ciModel.persistence.CIUploadResult;
 
 /**
  * Contains information returned by Qcloud COS for a completed upload.
@@ -32,6 +52,12 @@ public class UploadResult {
      * The version ID of the new object, only present if versioning has been enabled for the bucket.
      */
     private String versionId;
+
+    /** The crc64ecma value for this object */
+    private String crc64Ecma;
+
+    /** The ci upload result */
+    private CIUploadResult ciUploadResult;
 
     /**
      * get requestid for this upload
@@ -142,5 +168,21 @@ public class UploadResult {
      */
     public void setVersionId(String versionId) {
         this.versionId = versionId;
+    }
+
+    public String getCrc64Ecma() {
+        return crc64Ecma;
+    }
+
+    public void setCrc64Ecma(String crc64Ecma) {
+        this.crc64Ecma = crc64Ecma;
+    }
+
+    public CIUploadResult getCiUploadResult() {
+        return ciUploadResult;
+    }
+
+    public void setCiUploadResult(CIUploadResult ciUploadResult) {
+        this.ciUploadResult = ciUploadResult;
     }
 }

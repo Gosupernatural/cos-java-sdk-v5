@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.auth;
 
 import static com.qcloud.cos.auth.COSSignerConstants.LINE_SEPARATOR;
@@ -15,6 +33,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.Set;
+import java.util.HashSet;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.codec.digest.HmacUtils;
@@ -26,7 +46,20 @@ import com.qcloud.cos.internal.CosServiceRequest;
 import com.qcloud.cos.utils.UrlEncoderUtils;
 
 public class COSSigner {
-
+    private static Set<String> needSignedHeaderSet = new HashSet<>();
+    private Boolean isCIWorkflowRequest = false;
+    // Time offset between local and server
+    private int localTimeDelta = 0;
+    static {
+        needSignedHeaderSet.add("host");
+        needSignedHeaderSet.add("content-type");
+        needSignedHeaderSet.add("content-md5");
+        needSignedHeaderSet.add("content-disposition");
+        needSignedHeaderSet.add("content-encoding");
+        needSignedHeaderSet.add("content-length");
+        needSignedHeaderSet.add("transfer-encoding");
+        needSignedHeaderSet.add("range");
+    }
     private boolean isAnonymous(COSCredentials cred) {
         return cred instanceof AnonymousCOSCredentials;
     }
@@ -46,20 +79,35 @@ public class COSSigner {
                     ((COSSessionCredentials) cred).getSessionToken());
         }
     }
-
     public String buildAuthorizationStr(HttpMethodName methodName, String resouce_path,
             COSCredentials cred, Date expiredTime) {
-
         return buildAuthorizationStr(methodName, resouce_path, new HashMap<String, String>(),
                 new HashMap<String, String>(), cred, expiredTime);
     }
 
-    public String buildAuthorizationStr(HttpMethodName methodName, String resouce_path,
-            Map<String, String> headerMap, Map<String, String> paramMap, COSCredentials cred,
-            Date expiredTime) {
+    public String buildPostObjectSignature(String secretKey, String keyTime, String policy) {
+        String signKey = HmacUtils.hmacSha1Hex(secretKey, keyTime);
+        String stringToSign = DigestUtils.sha1Hex(policy);
+        return HmacUtils.hmacSha1Hex(signKey, stringToSign);
+    }
 
+    public String buildAuthorizationStr(HttpMethodName methodName, String resouce_path,
+                                        Map<String, String> headerMap, Map<String, String> paramMap, COSCredentials cred,
+                                        Date expiredTime) {
+        Date startTime = new Date();
+        return buildAuthorizationStr(methodName, resouce_path, headerMap, paramMap,
+                cred, startTime, expiredTime);
+    }
+
+    public String buildAuthorizationStr(HttpMethodName methodName, String resouce_path,
+                                        Map<String, String> headerMap, Map<String, String> paramMap, COSCredentials cred,
+                                        Date startTime, Date expiredTime) {
         if (isAnonymous(cred)) {
             return null;
+        }
+        //万象工作流接口会出现uri带问号的情况 例如 /workflow/xxxxxx?active 这种情况?后面的参数不参与鉴权
+        if (isCIWorkflowRequest){
+            resouce_path = resouce_path.split("\\?")[0];
         }
 
         Map<String, String> signHeaders = buildSignHeaders(headerMap);
@@ -73,7 +121,7 @@ public class COSSigner {
         String qHeaderListStr = buildSignMemberStr(sortedSignHeaders);
         String qUrlParamListStr = buildSignMemberStr(sortedParams);
         String qKeyTimeStr, qSignTimeStr;
-        qKeyTimeStr = qSignTimeStr = buildTimeStr(expiredTime);
+        qKeyTimeStr = qSignTimeStr = buildTimeStr(startTime, expiredTime);
         String signKey = HmacUtils.hmacSha1Hex(cred.getCOSSecretKey(), qKeyTimeStr);
         String formatMethod = methodName.toString().toLowerCase();
         String formatUri = resouce_path;
@@ -99,18 +147,19 @@ public class COSSigner {
         return authoriationStr;
     }
 
+    public boolean needSignedHeader(String header) {
+        return needSignedHeaderSet.contains(header) || header.startsWith("x-cos-");
+    }
+
     private Map<String, String> buildSignHeaders(Map<String, String> originHeaders) {
         Map<String, String> signHeaders = new HashMap<>();
         for (Entry<String, String> headerEntry : originHeaders.entrySet()) {
-            String key = headerEntry.getKey();
-            if (key.equalsIgnoreCase("content-type") || key.equalsIgnoreCase("content-md5")
-                    || key.startsWith("x") || key.startsWith("X")) {
-                String lowerKey = key.toLowerCase();
+            String key = headerEntry.getKey().toLowerCase();
+            if(needSignedHeader(key)) {
                 String value = headerEntry.getValue();
-                signHeaders.put(lowerKey, value);
+                signHeaders.put(key, value);
             }
         }
-
         return signHeaders;
     }
 
@@ -150,12 +199,31 @@ public class COSSigner {
         return strBuilder.toString();
     }
 
-    private String buildTimeStr(Date expiredTime) {
+    private String buildTimeStr(Date startTime, Date endTime) {
         StringBuilder strBuilder = new StringBuilder();
-        long startTime = System.currentTimeMillis() / 1000;
-        long endTime = expiredTime.getTime() / 1000;
-        strBuilder.append(startTime).append(";").append(endTime);
+        long startTimestamp = startTime.getTime() / 1000 + localTimeDelta;
+        long endTimestamp = endTime.getTime() / 1000 + localTimeDelta;
+        strBuilder.append(startTimestamp).append(";").append(endTimestamp);
         return strBuilder.toString();
     }
 
+    public static Set<String> getNeedSignedHeaderSet() {
+        return needSignedHeaderSet;
+    }
+
+    public static void setNeedSignedHeaderSet(Set<String> needSignedHeaderSet) {
+        COSSigner.needSignedHeaderSet = needSignedHeaderSet;
+    }
+
+    public void setCIWorkflowRequest(Boolean CIRequest) {
+        isCIWorkflowRequest = CIRequest;
+    }
+
+    public int getLocalTimeDelta() {
+        return localTimeDelta;
+    }
+
+    public void setLocalTimeDelta(int localTimeDelta) {
+        this.localTimeDelta = localTimeDelta;
+    }
 }

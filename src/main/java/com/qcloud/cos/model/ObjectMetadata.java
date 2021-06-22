@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.model;
 
 import java.io.Serializable;
@@ -10,6 +28,7 @@ import com.qcloud.cos.Headers;
 import com.qcloud.cos.internal.ObjectExpirationResult;
 import com.qcloud.cos.internal.ObjectRestoreResult;
 import com.qcloud.cos.internal.ServerSideEncryptionResult;
+import com.qcloud.cos.model.ciModel.persistence.CIUploadResult;
 
 
 /**
@@ -17,7 +36,7 @@ import com.qcloud.cos.internal.ServerSideEncryptionResult;
  * metadata, as well as the standard HTTP headers that Qcloud COS sends and receives
  * (Content-Length, ETag, Content-MD5, etc.).
  */
-public class ObjectMetadata implements ServerSideEncryptionResult, ObjectExpirationResult,
+public class ObjectMetadata extends CosServiceResult implements ServerSideEncryptionResult, ObjectExpirationResult,
         ObjectRestoreResult, Cloneable, Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -67,6 +86,11 @@ public class ObjectMetadata implements ServerSideEncryptionResult, ObjectExpirat
 
     /** True if this object represents a delete marker */
     private boolean isDeleteMarker;
+
+    /**
+     * for ci put object result
+     */
+    private CIUploadResult ciUploadResult;
 
     /**
      * <p>
@@ -735,11 +759,51 @@ public class ObjectMetadata implements ServerSideEncryptionResult, ObjectExpirat
 
     }
 
+   /**
+    * @return The storage class of the object. Returns null if the object is in STANDARD storage.
+    */
+    public String getStorageClass() {
+        final Object storageClass = metadata.get(Headers.STORAGE_CLASS);
+        if (storageClass == null) {
+            return null;
+        }
+        return storageClass.toString();
+    }
+
+    /**
+     * @return The storage class of the object. Returns type is enum and return null if the object is in STANDARD storage.
+     */
+    public StorageClass getStorageClassEnum() {
+        String storageClassStr = getStorageClass();
+        StorageClass storageClass = null;
+        if(storageClassStr != null) {
+            storageClass = StorageClass.fromValue(storageClassStr);
+        }
+        return storageClass;
+    }
+
     /**
      * Returns the Key Management System key id used for Server Side Encryption of the COS
      * object.
      */
     public String getSSECOSKmsKeyId() {
         return (String) metadata.get(Headers.SERVER_SIDE_ENCRYPTION_QCLOUD_KMS_KEYID);
+    }
+
+    public String getCrc64Ecma() {
+        return (String)metadata.get(Headers.COS_HASH_CRC64_ECMA);
+    }
+
+    @Override
+    public String getRequestId() {
+        return (String)metadata.get(Headers.REQUEST_ID);
+    }
+
+    public CIUploadResult getCiUploadResult() {
+        return ciUploadResult;
+    }
+
+    public void setCiUploadResult(CIUploadResult ciUploadResult) {
+        this.ciUploadResult = ciUploadResult;
     }
 }

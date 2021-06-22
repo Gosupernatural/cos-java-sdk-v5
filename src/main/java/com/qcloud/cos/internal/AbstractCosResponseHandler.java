@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.internal;
 
 import java.util.HashMap;
@@ -54,10 +72,12 @@ public abstract class AbstractCosResponseHandler<T>
         CosServiceResponse<T> cosResponse = new CosServiceResponse<T>();
         String cosRequestId = response.getHeaders().get(Headers.REQUEST_ID);
         String cosTraceId = response.getHeaders().get(Headers.TRACE_ID);
+        String ciRequestId = response.getHeaders().get(Headers.CI_REQUEST_ID);
 
         Map<String, String> metadataMap = new HashMap<String, String>();
         metadataMap.put(Headers.REQUEST_ID, cosRequestId);
         metadataMap.put(Headers.TRACE_ID, cosTraceId);
+        metadataMap.put(Headers.CI_REQUEST_ID, ciRequestId);
         cosResponse.setResponseMetadata(new ResponseMetadata(metadataMap));
 
         return cosResponse;
@@ -73,34 +93,34 @@ public abstract class AbstractCosResponseHandler<T>
     protected void populateObjectMetadata(CosHttpResponse response, ObjectMetadata metadata) {
         for (Entry<String, String> header : response.getHeaders().entrySet()) {
             String key = header.getKey();
-            if (key.startsWith(Headers.COS_USER_METADATA_PREFIX)) {
+            if (StringUtils.beginsWithIgnoreCase(key, Headers.COS_USER_METADATA_PREFIX)) {
                 key = key.substring(Headers.COS_USER_METADATA_PREFIX.length());
                 metadata.addUserMetadata(key, header.getValue());
             } else if (ignoredHeaders.contains(key)) {
                 // ignore...
-            } else if (key.equals(Headers.LAST_MODIFIED)) {
+            } else if (key.equalsIgnoreCase(Headers.LAST_MODIFIED)) {
                 try {
                     metadata.setHeader(key, DateUtils.parseRFC822Date(header.getValue()));
                 } catch (Exception pe) {
                     log.warn("Unable to parse last modified date: " + header.getValue(), pe);
                 }
-            } else if (key.equals(Headers.CONTENT_LENGTH)) {
+            } else if (key.equalsIgnoreCase(Headers.CONTENT_LENGTH)) {
                 try {
                     metadata.setHeader(key, Long.parseLong(header.getValue()));
                 } catch (NumberFormatException nfe) {
                     log.warn("Unable to parse content length: " + header.getValue(), nfe);
                 }
-            } else if (key.equals(Headers.DELETE_MARKER)) {
+            } else if (key.equalsIgnoreCase(Headers.DELETE_MARKER)) {
                 metadata.setDeleteMarker(Boolean.parseBoolean(header.getValue()));
-            } else if (key.equals(Headers.ETAG)) {
+            } else if (key.equalsIgnoreCase(Headers.ETAG)) {
                 metadata.setHeader(key, StringUtils.removeQuotes(header.getValue()));
-            } else if (key.equals(Headers.EXPIRES)) {
+            } else if (key.equalsIgnoreCase(Headers.EXPIRES)) {
                 try {
                     metadata.setHttpExpiresDate(DateUtils.parseRFC822Date(header.getValue()));
                 } catch (Exception pe) {
                     log.warn("Unable to parse http expiration date: " + header.getValue(), pe);
                 }
-            } else if (key.equals(Headers.EXPIRATION)) {
+            } else if (key.equalsIgnoreCase(Headers.EXPIRATION)) {
                 new ObjectExpirationHeaderHandler<ObjectMetadata>().handle(metadata, response);
             } else if (key.equalsIgnoreCase(Headers.RESTORE)) {
                 new ObjectRestoreHeaderHandler<ObjectRestoreResult>().handle(metadata, response);

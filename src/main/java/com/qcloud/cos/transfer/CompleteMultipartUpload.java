@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.transfer;
 
 import java.util.ArrayList;
@@ -10,6 +28,7 @@ import com.qcloud.cos.event.ProgressListenerChain;
 import com.qcloud.cos.exception.CosClientException;
 import com.qcloud.cos.model.CompleteMultipartUploadRequest;
 import com.qcloud.cos.model.CompleteMultipartUploadResult;
+import com.qcloud.cos.model.ObjectMetadata;
 import com.qcloud.cos.model.PartETag;
 import com.qcloud.cos.model.PutObjectRequest;
 import com.qcloud.cos.model.UploadResult;
@@ -68,8 +87,23 @@ public class CompleteMultipartUpload implements Callable<UploadResult> {
             CompleteMultipartUploadRequest req = new CompleteMultipartUploadRequest(
                     origReq.getBucketName(), origReq.getKey(), uploadId,
                     collectPartETags())
-                .withGeneralProgressListener(origReq.getGeneralProgressListener())
-                ;
+                .withGeneralProgressListener(origReq.getGeneralProgressListener());
+
+            ObjectMetadata origMeta = origReq.getMetadata();
+            if (origMeta != null) {
+                ObjectMetadata objMeta = req.getObjectMetadata();
+                if (objMeta == null) {
+                    objMeta = new ObjectMetadata();
+                }
+
+                objMeta.setUserMetadata(origMeta.getUserMetadata());
+                req.setObjectMetadata(objMeta);
+            }
+            if(origReq.getPicOperations() != null) {
+                req.setPicOperations(origReq.getPicOperations());
+            }
+
+            TransferManagerUtils.populateEndpointAddr(origReq, req);
             res = cos.completeMultipartUpload(req);
         } catch (Exception e) {
             monitor.uploadFailed();
@@ -84,6 +118,8 @@ public class CompleteMultipartUpload implements Callable<UploadResult> {
         uploadResult.setVersionId(res.getVersionId());
         uploadResult.setRequestId(res.getRequestId());
         uploadResult.setDateStr(res.getDateStr());
+        uploadResult.setCrc64Ecma(res.getCrc64Ecma());
+        uploadResult.setCiUploadResult(res.getCiUploadResult());
 
         monitor.uploadComplete();
 

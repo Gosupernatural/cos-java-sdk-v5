@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.http;
 
 public interface HttpResponseHandler<T> {
@@ -20,13 +38,13 @@ public interface HttpResponseHandler<T> {
      * Indicates if this response handler requires that the underlying HTTP
      * connection <b>not</b> be closed automatically after the response is
      * handled.
-     * <p>
+     * 
      * For example, if the object returned by this response handler manually
      * manages the stream of data from the HTTP connection, and doesn't read all
      * the data from the connection in the {@link #handle(HttpResponse)} method,
      * this method can be used to prevent the underlying connection from being
      * prematurely closed.
-     * <p>
+     *
      * Response handlers should use this option very carefully, since it means
      * that resource cleanup is no longer handled automatically, and if
      * neglected, can result in the client runtime running out of resources for

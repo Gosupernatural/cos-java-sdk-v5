@@ -1,12 +1,30 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.model;
 
 /**
  * Contains information returned by COS for a completed copy operation.
  * <p>
- * See {@link TransferManager} for more information about creating transfers.
+ * See {@link com.qcloud.cos.transfer.TransferManager} for more information about creating transfers.
  *
- * @see TransferManager#copy(String, String, String, String)
- * @see TransferManager#copy(CopyObjectRequest)
+ * @see com.qcloud.cos.transfer.TransferManager#copy(String, String, String, String)
+ * @see com.qcloud.cos.transfer.TransferManager#copy(CopyObjectRequest)
  */
 public class CopyResult {
 
@@ -45,7 +63,10 @@ public class CopyResult {
      * enabled for the bucket.
      */
     private String versionId;
-    
+
+    /** The crc64ecma value for this object */
+    private String crc64Ecma;
+
     /**
      * get requestid for this upload
      * 
@@ -230,6 +251,14 @@ public class CopyResult {
      */
     public void setVersionId(String versionId) {
         this.versionId = versionId;
+    }
+
+    public String getCrc64Ecma() {
+        return crc64Ecma;
+    }
+
+    public void setCrc64Ecma(String crc64Ecma) {
+        this.crc64Ecma = crc64Ecma;
     }
 }
 

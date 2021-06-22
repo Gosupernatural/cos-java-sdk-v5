@@ -1,7 +1,26 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.util.Date;
 import java.util.List;
@@ -13,12 +32,25 @@ import com.qcloud.cos.http.HttpMethodName;
 import com.qcloud.cos.internal.COSDirectSpi;
 import com.qcloud.cos.model.AbortMultipartUploadRequest;
 import com.qcloud.cos.model.AccessControlList;
+import com.qcloud.cos.model.ciModel.auditing.AudioAuditingRequest;
+import com.qcloud.cos.model.ciModel.auditing.AudioAuditingResponse;
+import com.qcloud.cos.model.ciModel.auditing.ImageAuditingRequest;
+import com.qcloud.cos.model.ciModel.auditing.ImageAuditingResponse;
+import com.qcloud.cos.model.ciModel.auditing.VideoAuditingRequest;
+import com.qcloud.cos.model.ciModel.auditing.VideoAuditingResponse;
+import com.qcloud.cos.model.ciModel.common.ImageProcessRequest;
 import com.qcloud.cos.model.Bucket;
 import com.qcloud.cos.model.BucketCrossOriginConfiguration;
+import com.qcloud.cos.model.BucketIntelligentTierConfiguration;
 import com.qcloud.cos.model.BucketLifecycleConfiguration;
 import com.qcloud.cos.model.BucketPolicy;
 import com.qcloud.cos.model.BucketReplicationConfiguration;
 import com.qcloud.cos.model.BucketVersioningConfiguration;
+import com.qcloud.cos.model.GetBucketIntelligentTierConfigurationRequest;
+import com.qcloud.cos.model.SetBucketIntelligentTierConfigurationRequest;
+import com.qcloud.cos.model.SetBucketLoggingConfigurationRequest;
+import com.qcloud.cos.model.GetBucketLoggingConfigurationRequest;
+import com.qcloud.cos.model.BucketLoggingConfiguration;
 import com.qcloud.cos.model.COSObject;
 import com.qcloud.cos.model.CannedAccessControlList;
 import com.qcloud.cos.model.CompleteMultipartUploadRequest;
@@ -76,13 +108,72 @@ import com.qcloud.cos.model.SetObjectAclRequest;
 import com.qcloud.cos.model.UploadPartRequest;
 import com.qcloud.cos.model.UploadPartResult;
 import com.qcloud.cos.model.VersionListing;
+import com.qcloud.cos.model.GetBucketWebsiteConfigurationRequest;
+import com.qcloud.cos.model.SetBucketWebsiteConfigurationRequest;
+import com.qcloud.cos.model.DeleteBucketWebsiteConfigurationRequest;
+import com.qcloud.cos.model.BucketWebsiteConfiguration;
+import com.qcloud.cos.model.BucketDomainConfiguration;
+import com.qcloud.cos.model.SetBucketDomainConfigurationRequest;
+import com.qcloud.cos.model.GetBucketDomainConfigurationRequest;
+import com.qcloud.cos.model.DeleteBucketInventoryConfigurationResult;
+import com.qcloud.cos.model.DeleteBucketInventoryConfigurationRequest;
+import com.qcloud.cos.model.GetBucketInventoryConfigurationResult;
+import com.qcloud.cos.model.GetBucketInventoryConfigurationRequest;
+import com.qcloud.cos.model.ciModel.bucket.DocBucketRequest;
+import com.qcloud.cos.model.ciModel.bucket.DocBucketResponse;
+import com.qcloud.cos.model.ciModel.bucket.MediaBucketRequest;
+import com.qcloud.cos.model.ciModel.bucket.MediaBucketResponse;
+import com.qcloud.cos.model.ciModel.job.DocJobListRequest;
+import com.qcloud.cos.model.ciModel.job.DocJobListResponse;
+import com.qcloud.cos.model.ciModel.job.DocJobRequest;
+import com.qcloud.cos.model.ciModel.job.DocJobResponse;
+import com.qcloud.cos.model.ciModel.job.MediaJobResponse;
+import com.qcloud.cos.model.ciModel.job.MediaJobsRequest;
+import com.qcloud.cos.model.ciModel.job.MediaListJobResponse;
+import com.qcloud.cos.model.ciModel.mediaInfo.MediaInfoRequest;
+import com.qcloud.cos.model.ciModel.mediaInfo.MediaInfoResponse;
+import com.qcloud.cos.model.ciModel.persistence.CIUploadResult;
+import com.qcloud.cos.model.ciModel.queue.DocListQueueResponse;
+import com.qcloud.cos.model.ciModel.queue.DocQueueRequest;
+import com.qcloud.cos.model.ciModel.queue.MediaListQueueResponse;
+import com.qcloud.cos.model.ciModel.queue.MediaQueueRequest;
+import com.qcloud.cos.model.ciModel.queue.MediaQueueResponse;
+import com.qcloud.cos.model.ciModel.snapshot.SnapshotRequest;
+import com.qcloud.cos.model.ciModel.snapshot.SnapshotResponse;
+import com.qcloud.cos.model.ciModel.template.MediaListTemplateResponse;
+import com.qcloud.cos.model.ciModel.template.MediaTemplateRequest;
+import com.qcloud.cos.model.ciModel.template.MediaTemplateResponse;
+import com.qcloud.cos.model.ciModel.workflow.MediaWorkflowListRequest;
+import com.qcloud.cos.model.ciModel.workflow.MediaWorkflowExecutionResponse;
+import com.qcloud.cos.model.ciModel.workflow.MediaWorkflowExecutionsResponse;
+import com.qcloud.cos.model.ciModel.workflow.MediaWorkflowListResponse;
+import com.qcloud.cos.model.inventory.InventoryConfiguration;
+import com.qcloud.cos.model.SetBucketInventoryConfigurationResult;
+import com.qcloud.cos.model.SetBucketInventoryConfigurationRequest;
+import com.qcloud.cos.model.ListBucketInventoryConfigurationsResult;
+import com.qcloud.cos.model.ListBucketInventoryConfigurationsRequest;
+import com.qcloud.cos.model.DeleteBucketTaggingConfigurationRequest;
+import com.qcloud.cos.model.GetBucketTaggingConfigurationRequest;
+import com.qcloud.cos.model.SetBucketTaggingConfigurationRequest;
+import com.qcloud.cos.model.BucketTaggingConfiguration;
+import com.qcloud.cos.model.AppendObjectRequest;
+import com.qcloud.cos.model.AppendObjectResult;
+import com.qcloud.cos.model.SelectObjectContentResult;
+import com.qcloud.cos.model.SelectObjectContentRequest;
+import com.qcloud.cos.model.GetObjectTaggingRequest;
+import com.qcloud.cos.model.GetObjectTaggingResult;
+import com.qcloud.cos.model.SetObjectTaggingRequest;
+import com.qcloud.cos.model.SetObjectTaggingResult;
+import com.qcloud.cos.model.DeleteObjectTaggingRequest;
+import com.qcloud.cos.model.DeleteObjectTaggingResult;
+
 
 public interface COS extends COSDirectSpi {
 
     /**
      * return the client config. client config include the region info, default expired sign time,
      * etc.
-     * 
+     *
      * @return ClientConfig.
      */
     public ClientConfig getClientConfig();
@@ -130,15 +221,12 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param putObjectRequest The request object containing all the parameters to upload a new
-     *        object to .
-     *
+     *                         object to .
      * @return A {@link PutObjectResult} object containing the information returned by for the newly
-     *         created object.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * created object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#putObject(String, String, File)
      * @see COS#putObject(String, String, InputStream, ObjectMetadata)
      */
@@ -168,17 +256,14 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName The name of an existing bucket, to which you have {@link Permission#Write}
-     *        permission.
-     * @param key The key under which to store the specified file.
-     * @param file The file containing the data to be uploaded to .
-     * 
+     *                   permission.
+     * @param key        The key under which to store the specified file.
+     * @param file       The file containing the data to be uploaded to .
      * @return A {@link PutObjectResult} object containing the information returned by for the newly
-     *         created object.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * created object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#putObject(PutObjectRequest)
      * @see COS#putObject(String, String, InputStream, ObjectMetadata)
      */
@@ -214,25 +299,41 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName The name of an existing bucket, to which you have {@link Permission#Write}
-     *        permission.
-     * @param key The key under which to store the specified file.
-     * @param input The input stream containing the data to be uploaded to .
-     * @param metadata Additional metadata instructing how to handle the uploaded data (e.g. custom
-     *        user metadata, hooks for specifying content type, etc.).
-     *
+     *                   permission.
+     * @param key        The key under which to store the specified file.
+     * @param input      The input stream containing the data to be uploaded to .
+     * @param metadata   Additional metadata instructing how to handle the uploaded data (e.g. custom
+     *                   user metadata, hooks for specifying content type, etc.).
      * @return A {@link PutObjectResult} object containing the information returned by for the newly
-     *         created object.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * created object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#putObject(PutObjectRequest)
      * @see COS#putObject(String, String, File)
      */
     public PutObjectResult putObject(String bucketName, String key, InputStream input,
-            ObjectMetadata metadata) throws CosClientException, CosServiceException;
+                                     ObjectMetadata metadata) throws CosClientException, CosServiceException;
 
+    /**
+     * <p>
+     * upload string content to a cos object. content will be encoded to bytes with UTF-8 encoding
+     * </p>
+     *
+     * @param bucketName The name of an existing bucket, to which you have {@link Permission#Write}
+     *                   permission.
+     * @param key        The key under which to store the specified file.
+     * @param content    the object content, content will be encoded to bytes with UTF-8 encoding.
+     * @return A {@link PutObjectResult} object containing the information returned by for the newly
+     * created object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in while processing the request.
+     * @see COS#putObject(PutObjectRequest)
+     * @see COS#putObject(String, String, File)
+     */
+    public PutObjectResult putObject(String bucketName, String key, String content)
+            throws CosClientException, CosServiceException;
 
     /**
      * <p>
@@ -264,14 +365,11 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName The name of the bucket containing the desired object.
-     * @param key The key under which the desired object is stored.
-     *
+     * @param key        The key under which the desired object is stored.
      * @return The object stored in in the specified bucket and key.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#getObject(GetObjectRequest)
      * @see COS#getObject(GetObjectRequest, File)
      */
@@ -314,13 +412,11 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param getObjectRequest The request object containing all the options on how to download the
-     *        object.
-     *
+     *                         object.
      * @return The object stored in in the specified bucket and key. Returns <code>null</code> if
-     *         constraints were specified but not met.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * constraints were specified but not met.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      * @see COS#getObject(String, String)
      * @see COS#getObject(GetObjectRequest, File)
@@ -352,20 +448,17 @@ public interface COS extends COSDirectSpi {
      * this method returning <code>null</code> if the provided constraints aren't met when Qcloud
      * COS receives the request.
      * </p>
-     * 
+     *
      * @param getObjectRequest The request object containing all the options on how to download the
-     *        object content.
-     * @param destinationFile Indicates the file (which might already exist) where to save the
-     *        object content being downloading from .
-     *
+     *                         object content.
+     * @param destinationFile  Indicates the file (which might already exist) where to save the
+     *                         object content being downloading from .
      * @return All COS object metadata for the specified object. Returns <code>null</code> if
-     *         constraints were specified but not met.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request, handling the response, or writing the incoming data from COS to the
-     *         specified destination file.
+     * constraints were specified but not met.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request, handling the response, or writing the incoming data from COS to the
+     *                             specified destination file.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#getObject(String, String)
      * @see COS#getObject(GetObjectRequest)
      */
@@ -376,9 +469,9 @@ public interface COS extends COSDirectSpi {
      * @param bucketName Name of bucket that presumably contains object
      * @param objectName Name of object that has to be checked
      * @return true if exist. otherwise false;
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request, handling the response, or writing the incoming data from COS to the
-     *         specified destination file.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request, handling the response, or writing the incoming data from COS to the
+     *                             specified destination file.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     boolean doesObjectExist(String bucketName, String objectName)
@@ -396,14 +489,11 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName bucket name
-     * @param key cos path
-     *
+     * @param key        cos path
      * @return All COS object metadata for the specified object.
-     *
-     * @throws CosClientException If any errors are encountered on the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public ObjectMetadata getObjectMetadata(String bucketName, String key)
             throws CosClientException, CosServiceException;
@@ -420,19 +510,15 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param getObjectMetadataRequest The request object specifying the bucket, key and optional
-     *        version ID of the object whose metadata is being retrieved.
-     *
+     *                                 version ID of the object whose metadata is being retrieved.
      * @return All COS object metadata for the specified object.
-     *
-     * @throws CosClientException If any errors are encountered on the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#getObjectMetadata(String, String)
      */
     public ObjectMetadata getObjectMetadata(GetObjectMetadataRequest getObjectMetadataRequest)
             throws CosClientException, CosServiceException;
-
 
 
     /**
@@ -444,11 +530,11 @@ public interface COS extends COSDirectSpi {
      * If attempting to delete an object that does not exist, will return a success message instead
      * of an error message.
      * </p>
-     * 
+     *
      * @param bucketName bucket name
-     * @param key cos path
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @param key        cos path
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
 
@@ -466,12 +552,10 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param deleteObjectRequest The request object containing all options for deleting an Qcloud
-     *        COS object.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                            COS object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COSClient#deleteObject(String, String)
      */
     public void deleteObject(DeleteObjectRequest deleteObjectRequest)
@@ -496,12 +580,12 @@ public interface COS extends COSDirectSpi {
      * If attempting to delete an object that does not exist, COS will return a success message
      * instead of an error message.
      * </p>
-     * 
+     *
      * @param bucketName The name of the COS bucket containing the object to delete.
-     * @param key The key of the object to delete.
-     * @param versionId The version of the object to delete.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @param key        The key of the object to delete.
+     * @param versionId  The version of the object to delete.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void deleteVersion(String bucketName, String key, String versionId)
@@ -526,16 +610,17 @@ public interface COS extends COSDirectSpi {
      * If attempting to delete an object that does not exist, COS will return a success message
      * instead of an error message.
      * </p>
-     * 
+     *
      * @param deleteVersionRequest The request object containing all options for deleting a specific
-     *        version of an COS object.
-     * 
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                             version of an COS object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void deleteVersion(DeleteVersionRequest deleteVersionRequest)
-            throws CosClientException, CosServiceException;;
+            throws CosClientException, CosServiceException;
+
+    ;
 
     /**
      * Deletes multiple objects in a single bucket from COS.
@@ -545,15 +630,14 @@ public interface COS extends COSDirectSpi {
      * {@link MultiObjectDeleteException} with details of the error.
      *
      * @param deleteObjectsRequest The request object containing all options for deleting multiple
-     *        objects.
+     *                             objects.
      * @throws MultiObjectDeleteException if one or more of the objects couldn't be deleted.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * @throws CosServiceException If any errors occurred in while processing the request.
+     * @throws CosClientException         If any errors are encountered in the client while making the
+     *                                    request or handling the response.
+     * @throws CosServiceException        If any errors occurred in while processing the request.
      */
     public DeleteObjectsResult deleteObjects(DeleteObjectsRequest deleteObjectsRequest)
             throws MultiObjectDeleteException, CosClientException, CosServiceException;
-
 
 
     /**
@@ -584,9 +668,8 @@ public interface COS extends COSDirectSpi {
      *
      * @param bucketName The name of the bucket to be created
      * @return The newly created bucket.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public Bucket createBucket(String bucketName) throws CosClientException, CosServiceException;
@@ -619,11 +702,10 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param createBucketRequest The request object containing all options for creating an Qcloud
-     *        COS bucket.
+     *                            COS bucket.
      * @return The newly created bucket.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public Bucket createBucket(CreateBucketRequest createBucketRequest)
@@ -638,12 +720,11 @@ public interface COS extends COSDirectSpi {
      * Only the owner of a bucket can delete it, regardless of the bucket's access control policy
      * (ACL).
      * </p>
-     * 
-     * @param bucketName The name of the bucket to be deleted
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * @throws CosServiceException If any errors occurred in while processing the request.
      *
+     * @param bucketName The name of the bucket to be deleted
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void deleteBucket(String bucketName) throws CosClientException, CosServiceException;
 
@@ -658,11 +739,10 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param deleteBucketRequest The request object containing all options for deleting an Qcloud
-     *        COS bucket.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                            COS bucket.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#deleteBucket(String)
      */
     public void deleteBucket(DeleteBucketRequest deleteBucketRequest)
@@ -678,14 +758,11 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName The name of the bucket to check.
-     *
      * @return The value <code>true</code> if the specified bucket exists ; the value
-     *         <code>false</code> if there is no bucket with that name.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * <code>false</code> if there is no bucket with that name.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public boolean doesBucketExist(String bucketName)
             throws CosClientException, CosServiceException;
@@ -696,28 +773,27 @@ public interface COS extends COSDirectSpi {
      *
      * @param headBucketRequest The request containing the bucket name.
      * @return This method returns a {@link HeadBucketResult} if the bucket exists and you have
-     *         permission to access it. Otherwise, the method will throw an
-     *         {@link CosServiceException} with status code {@code '404 Not Found'} if the bucket
-     *         does not exist, {@code '403 Forbidden'} if the user does not have access to the
-     *         bucket
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * permission to access it. Otherwise, the method will throw an
+     * {@link CosServiceException} with status code {@code '404 Not Found'} if the bucket
+     * does not exist, {@code '403 Forbidden'} if the user does not have access to the
+     * bucket
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public HeadBucketResult headBucket(HeadBucketRequest headBucketRequest)
-            throws CosClientException, CosServiceException;;
+            throws CosClientException, CosServiceException;
+
+    ;
 
     /**
      * <p>
      * Returns a list of all buckets that the authenticated sender of the request owns.
      * </p>
-     * 
      *
      * @return A list of all of the buckets owned by the authenticated sender of the request.
-     * 
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public List<Bucket> listBuckets() throws CosClientException, CosServiceException;
@@ -726,15 +802,12 @@ public interface COS extends COSDirectSpi {
      * <p>
      * Returns a list of all buckets that the authenticated sender of the request owns.
      * </p>
-     * 
-     * @param listBucketsRequest The request containing all of the options related to the listing of
-     *        buckets.
      *
+     * @param listBucketsRequest The request containing all of the options related to the listing of
+     *                           buckets.
      * @return A list of all of the buckets owned by the authenticated sender of the request.
-     * 
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public List<Bucket> listBuckets(ListBucketsRequest listBucketsRequest)
@@ -747,14 +820,11 @@ public interface COS extends COSDirectSpi {
      * <p>
      * To view the location constraint of a bucket, the user must be the bucket owner.
      * </p>
-     * 
-     * @param bucketName The name of the bucket to get location
      *
+     * @param bucketName The name of the bucket to get location
      * @return The location of the specified bucket.
-     * 
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public String getBucketLocation(String bucketName)
@@ -767,15 +837,12 @@ public interface COS extends COSDirectSpi {
      * <p>
      * To view the location constraint of a bucket, the user must be the bucket owner.
      * </p>
-     * 
-     * @param getBucketLocationRequest The request object containing the name of the bucket to look
-     *        up. This must be a bucket the user owns.
      *
+     * @param getBucketLocationRequest The request object containing the name of the bucket to look
+     *                                 up. This must be a bucket the user owns.
      * @return The location of the specified bucket.
-     * 
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public String getBucketLocation(GetBucketLocationRequest getBucketLocationRequest)
@@ -794,12 +861,10 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param request The InitiateMultipartUploadRequest object that specifies all the parameters of
-     *        this operation.
-     *
+     *                this operation.
      * @return An InitiateMultipartUploadResult from .
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public InitiateMultipartUploadResult initiateMultipartUpload(
@@ -832,14 +897,12 @@ public interface COS extends COSDirectSpi {
      * the uploaded parts. Once you complete or abort the multipart upload will release the stored
      * parts and stop charging you for their storage.
      * </p>
-     * 
+     *
      * @param request The UploadPartRequest object that specifies all the parameters of this
-     *        operation.
-     *
+     *                operation.
      * @return An UploadPartResult from containing the part number and ETag of the new part.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public UploadPartResult uploadPart(UploadPartRequest uploadPartRequest)
@@ -858,12 +921,10 @@ public interface COS extends COSDirectSpi {
      * NextPartNumberMarker property value from the previous response.
      *
      * @param request The ListPartsRequest object that specifies all the parameters of this
-     *        operation.
-     *
+     *                operation.
      * @return Returns a PartListing from .
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public PartListing listParts(ListPartsRequest request)
@@ -875,10 +936,9 @@ public interface COS extends COSDirectSpi {
      * freed.
      *
      * @param request The AbortMultipartUploadRequest object that specifies all the parameters of
-     *        this operation.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                this operation.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void abortMultipartUpload(AbortMultipartUploadRequest request)
@@ -898,13 +958,11 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param request The CompleteMultipartUploadRequest object that specifies all the parameters of
-     *        this operation.
-     *
+     *                this operation.
      * @return A CompleteMultipartUploadResult from COS containing the ETag for the new object
-     *         composed of the individual parts.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * composed of the individual parts.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public CompleteMultipartUploadResult completeMultipartUpload(
@@ -923,12 +981,10 @@ public interface COS extends COSDirectSpi {
      * parameters.
      *
      * @param request The ListMultipartUploadsRequest object that specifies all the parameters of
-     *        this operation.
-     *
+     *                this operation.
      * @return A MultipartUploadListing from .
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public MultipartUploadListing listMultipartUploads(ListMultipartUploadsRequest request)
@@ -952,15 +1008,12 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName The name of the bucket to list.
-     *
      * @return A listing of the objects in the specified bucket, along with any other associated
-     *         information, such as common prefixes (if a delimiter was specified), the original
-     *         request parameters, etc.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * information, such as common prefixes (if a delimiter was specified), the original
+     * request parameters, etc.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#listObjects(String, String)
      * @see COS#listObjects(ListObjectsRequest)
      */
@@ -1002,18 +1055,15 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName The name of the bucket to list.
-     * @param prefix An optional parameter restricting the response to keys beginning with the
-     *        specified prefix. Use prefixes to separate a bucket into different sets of keys,
-     *        similar to how a file system organizes files into directories.
-     *
+     * @param prefix     An optional parameter restricting the response to keys beginning with the
+     *                   specified prefix. Use prefixes to separate a bucket into different sets of keys,
+     *                   similar to how a file system organizes files into directories.
      * @return A listing of the objects in the specified bucket, along with any other associated
-     *         information, such as common prefixes (if a delimiter was specified), the original
-     *         request parameters, etc.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * information, such as common prefixes (if a delimiter was specified), the original
+     * request parameters, etc.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#listObjects(String)
      * @see COS#listObjects(ListObjectsRequest)
      */
@@ -1061,16 +1111,13 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param listObjectsRequest The request object containing all options for listing the objects
-     *        in a specified bucket.
-     *
+     *                           in a specified bucket.
      * @return A listing of the objects in the specified bucket, along with any other associated
-     *         information, such as common prefixes (if a delimiter was specified), the original
-     *         request parameters, etc.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * information, such as common prefixes (if a delimiter was specified), the original
+     * request parameters, etc.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#listObjects(String)
      * @see COS#listObjects(String, String)
      */
@@ -1090,18 +1137,15 @@ public interface COS extends COSDirectSpi {
      * results. Continue using this method to retrieve more results until the returned
      * <code>ObjectListing</code> indicates that it is not truncated.
      * </p>
-     * 
+     *
      * @param previousObjectListing The previous truncated <code>ObjectListing</code>. If a
-     *        non-truncated <code>ObjectListing</code> is passed in, an empty
-     *        <code>ObjectListing</code> is returned without ever contacting .
-     *
+     *                              non-truncated <code>ObjectListing</code> is passed in, an empty
+     *                              <code>ObjectListing</code> is returned without ever contacting .
      * @return The next set of <code>ObjectListing</code> results, beginning immediately after the
-     *         last result in the specified previous <code>ObjectListing</code>.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * last result in the specified previous <code>ObjectListing</code>.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#listObjects(String)
      * @see COS#listObjects(String, String)
      * @see COS#listObjects(ListObjectsRequest)
@@ -1123,19 +1167,16 @@ public interface COS extends COSDirectSpi {
      * results. Continue using this method to retrieve more results until the returned
      * <code>ObjectListing</code> indicates that it is not truncated.
      * </p>
-     * 
+     *
      * @param listNextBatchOfObjectsRequest The request object for listing next batch of objects
-     *        using the previous truncated <code>ObjectListing</code>. If a non-truncated
-     *        <code>ObjectListing</code> is passed in by the request object, an empty
-     *        <code>ObjectListing</code> is returned without ever contacting .
-     *
+     *                                      using the previous truncated <code>ObjectListing</code>. If a non-truncated
+     *                                      <code>ObjectListing</code> is passed in by the request object, an empty
+     *                                      <code>ObjectListing</code> is returned without ever contacting .
      * @return The next set of <code>ObjectListing</code> results, beginning immediately after the
-     *         last result in the specified previous <code>ObjectListing</code>.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * last result in the specified previous <code>ObjectListing</code>.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#listObjects(String)
      * @see COS#listObjects(String, String)
      * @see COS#listObjects(ListObjectsRequest)
@@ -1143,7 +1184,7 @@ public interface COS extends COSDirectSpi {
      */
     public ObjectListing listNextBatchOfObjects(
             ListNextBatchOfObjectsRequest listNextBatchOfObjectsRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
     /**
      * <p>
@@ -1169,18 +1210,14 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName The name of the COS bucket whose versions are to be listed.
-     * @param prefix An optional parameter restricting the response to keys beginning with the
-     *        specified prefix. Use prefixes to separate a bucket into different sets of keys,
-     *        similar to how a file system organizes files into directories.
-     *
+     * @param prefix     An optional parameter restricting the response to keys beginning with the
+     *                   specified prefix. Use prefixes to separate a bucket into different sets of keys,
+     *                   similar to how a file system organizes files into directories.
      * @return A listing of the versions in the specified bucket, along with any other associated
-     *         information and original request parameters.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * information and original request parameters.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#listVersions(ListVersionsRequest)
      * @see COS#listVersions(String, String, String, String, String, Integer)
      */
@@ -1209,60 +1246,56 @@ public interface COS extends COSDirectSpi {
      * For more information about enabling versioning for a bucket, see
      * {@link #setBucketVersioningConfiguration(SetBucketVersioningConfigurationRequest)}.
      * </p>
-     * 
-     * @param bucketName The name of the QCloud COS bucket whose versions are to be listed.
-     * @param prefix An optional parameter restricting the response to keys that begin with the
-     *        specified prefix. Use prefixes to separate a bucket into different sets of keys,
-     *        similar to how a file system organizes files into directories.
-     * @param keyMarker Optional parameter indicating where in the sorted list of all versions in
-     *        the specified bucket to begin returning results. Results are always ordered first
-     *        lexicographically (i.e. alphabetically) and then from most recent version to least
-     *        recent version. If a keyMarker is used without a versionIdMarker, results begin
-     *        immediately after that key's last version. When a keyMarker is used with a
-     *        versionIdMarker, results begin immediately after the version with the specified key
-     *        and version ID.
-     *        <p>
-     *        This enables pagination; to get the next page of results use the next key marker and
-     *        next version ID marker (from {@link VersionListing#getNextKeyMarker()} and
-     *        {@link VersionListing#getNextVersionIdMarker()}) as the markers for the next request
-     *        to list versions, or use the convenience method
-     *        {@link COS#listNextBatchOfVersions(VersionListing)}
+     *
+     * @param bucketName      The name of the QCloud COS bucket whose versions are to be listed.
+     * @param prefix          An optional parameter restricting the response to keys that begin with the
+     *                        specified prefix. Use prefixes to separate a bucket into different sets of keys,
+     *                        similar to how a file system organizes files into directories.
+     * @param keyMarker       Optional parameter indicating where in the sorted list of all versions in
+     *                        the specified bucket to begin returning results. Results are always ordered first
+     *                        lexicographically (i.e. alphabetically) and then from most recent version to least
+     *                        recent version. If a keyMarker is used without a versionIdMarker, results begin
+     *                        immediately after that key's last version. When a keyMarker is used with a
+     *                        versionIdMarker, results begin immediately after the version with the specified key
+     *                        and version ID.
+     *                        <p>
+     *                        This enables pagination; to get the next page of results use the next key marker and
+     *                        next version ID marker (from {@link VersionListing#getNextKeyMarker()} and
+     *                        {@link VersionListing#getNextVersionIdMarker()}) as the markers for the next request
+     *                        to list versions, or use the convenience method
+     *                        {@link COS#listNextBatchOfVersions(VersionListing)}
      * @param versionIdMarker Optional parameter indicating where in the sorted list of all versions
-     *        in the specified bucket to begin returning results. Results are always ordered first
-     *        lexicographically (i.e. alphabetically) and then from most recent version to least
-     *        recent version. A keyMarker must be specified when specifying a versionIdMarker.
-     *        Results begin immediately after the version with the specified key and version ID.
-     *        <p>
-     *        This enables pagination; to get the next page of results use the next key marker and
-     *        next version ID marker (from {@link VersionListing#getNextKeyMarker()} and
-     *        {@link VersionListing#getNextVersionIdMarker()}) as the markers for the next request
-     *        to list versions, or use the convenience method
-     *        {@link COS#listNextBatchOfVersions(VersionListing)}
-     * @param delimiter Optional parameter that causes keys that contain the same string between the
-     *        prefix and the first occurrence of the delimiter to be rolled up into a single result
-     *        element in the {@link VersionListing#getCommonPrefixes()} list. These rolled-up keys
-     *        are not returned elsewhere in the response. The most commonly used delimiter is "/",
-     *        which simulates a hierarchical organization similar to a file system directory
-     *        structure.
-     * @param maxResults Optional parameter indicating the maximum number of results to include in
-     *        the response. QCloud COS might return fewer than this, but will not return more. Even
-     *        if maxKeys is not specified, QCloud COS will limit the number of results in the
-     *        response.
-     *
+     *                        in the specified bucket to begin returning results. Results are always ordered first
+     *                        lexicographically (i.e. alphabetically) and then from most recent version to least
+     *                        recent version. A keyMarker must be specified when specifying a versionIdMarker.
+     *                        Results begin immediately after the version with the specified key and version ID.
+     *                        <p>
+     *                        This enables pagination; to get the next page of results use the next key marker and
+     *                        next version ID marker (from {@link VersionListing#getNextKeyMarker()} and
+     *                        {@link VersionListing#getNextVersionIdMarker()}) as the markers for the next request
+     *                        to list versions, or use the convenience method
+     *                        {@link COS#listNextBatchOfVersions(VersionListing)}
+     * @param delimiter       Optional parameter that causes keys that contain the same string between the
+     *                        prefix and the first occurrence of the delimiter to be rolled up into a single result
+     *                        element in the {@link VersionListing#getCommonPrefixes()} list. These rolled-up keys
+     *                        are not returned elsewhere in the response. The most commonly used delimiter is "/",
+     *                        which simulates a hierarchical organization similar to a file system directory
+     *                        structure.
+     * @param maxResults      Optional parameter indicating the maximum number of results to include in
+     *                        the response. QCloud COS might return fewer than this, but will not return more. Even
+     *                        if maxKeys is not specified, QCloud COS will limit the number of results in the
+     *                        response.
      * @return A listing of the versions in the specified bucket, along with any other associated
-     *         information and original request parameters.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * information and original request parameters.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#listVersions(ListVersionsRequest)
      * @see COS#listVersions(String, String)
      */
     public VersionListing listVersions(String bucketName, String prefix, String keyMarker,
-            String versionIdMarker, String delimiter, Integer maxResults)
-                    throws CosClientException, CosServiceException;
+                                       String versionIdMarker, String delimiter, Integer maxResults)
+            throws CosClientException, CosServiceException;
 
     /**
      * <p>
@@ -1286,18 +1319,14 @@ public interface COS extends COSDirectSpi {
      * For more information about enabling versioning for a bucket, see
      * {@link #setBucketVersioningConfiguration(SetBucketVersioningConfigurationRequest)}.
      * </p>
-     * 
+     *
      * @param listVersionsRequest The request object containing all options for listing the versions
-     *        in a specified bucket.
-     *
+     *                            in a specified bucket.
      * @return A listing of the versions in the specified bucket, along with any other associated
-     *         information and original request parameters.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * information and original request parameters.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      * @see COS#listVersions(String, String, String, String, String, Integer)
      * @see COS#listVersions(String, String)
      */
@@ -1323,15 +1352,12 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param previousVersionListing The previous truncated <code>VersionListing</code>. If a
-     *        non-truncated <code>VersionListing</code> is passed in, an empty
-     *        <code>VersionListing</code> is returned without ever contacting COS.
-     *
+     *                               non-truncated <code>VersionListing</code> is passed in, an empty
+     *                               <code>VersionListing</code> is returned without ever contacting COS.
      * @return The next set of <code>VersionListing</code> results, beginning immediately after the
-     *         last result in the specified previous <code>VersionListing</code>.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * last result in the specified previous <code>VersionListing</code>.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      * @see COS#listVersions(String, String)
      * @see COS#listVersions(ListVersionsRequest)
@@ -1360,17 +1386,13 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param listNextBatchOfVersionsRequest The request object for listing next batch of versions
-     *        using the previous truncated <code>VersionListing</code>. If a non-truncated
-     *        <code>VersionListing</code> is passed in by the request object, an empty
-     *        <code>VersionListing</code> is returned without ever contacting COS.
-     *
-     *
+     *                                       using the previous truncated <code>VersionListing</code>. If a non-truncated
+     *                                       <code>VersionListing</code> is passed in by the request object, an empty
+     *                                       <code>VersionListing</code> is returned without ever contacting COS.
      * @return The next set of <code>VersionListing</code> results, beginning immediately after the
-     *         last result in the specified previous <code>VersionListing</code>.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * last result in the specified previous <code>VersionListing</code>.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      * @see COS#listVersions(String, String)
      * @see COS#listVersions(ListVersionsRequest)
@@ -1379,7 +1401,7 @@ public interface COS extends COSDirectSpi {
      */
     public VersionListing listNextBatchOfVersions(
             ListNextBatchOfVersionsRequest listNextBatchOfVersionsRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
     /**
      * <p>
@@ -1390,28 +1412,24 @@ public interface COS extends COSDirectSpi {
      * access to the destination bucket. cos support copy a object from a diff account, diff region,
      * diff bucket
      * </p>
-     * 
-     * 
-     * @param sourceBucketName The name of the bucket containing the source object to copy.
-     * @param sourceKey The key in the source bucket under which the source object is stored.
-     * @param destinationBucketName The name of the bucket in which the new object will be created.
-     *        This can be the same name as the source bucket's.
-     * @param destinationKey The key in the destination bucket under which the new object will be
-     *        created.
      *
+     * @param sourceBucketName      The name of the bucket containing the source object to copy.
+     * @param sourceKey             The key in the source bucket under which the source object is stored.
+     * @param destinationBucketName The name of the bucket in which the new object will be created.
+     *                              This can be the same name as the source bucket's.
+     * @param destinationKey        The key in the destination bucket under which the new object will be
+     *                              created.
      * @return A {@link CopyObjectResult} object containing the information returned by about the
-     *         newly created object, or <code>null</code> if constraints were specified that weren't
-     *         met when attempted to copy the object.
-     * 
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * newly created object, or <code>null</code> if constraints were specified that weren't
+     * met when attempted to copy the object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
 
     public CopyObjectResult copyObject(String sourceBucketName, String sourceKey,
-            String destinationBucketName, String destinationKey)
-                    throws CosClientException, CosServiceException;
+                                       String destinationBucketName, String destinationKey)
+            throws CosClientException, CosServiceException;
 
     /**
      * <p>
@@ -1422,17 +1440,14 @@ public interface COS extends COSDirectSpi {
      * access to the destination bucket. cos support copy a object from a diff account, diff region,
      * diff bucket
      * </p>
-     * 
-     * @param copyObjectRequest The request object containing all the options for copying an QCloud
-     *        COS object.
      *
+     * @param copyObjectRequest The request object containing all the options for copying an QCloud
+     *                          COS object.
      * @return A {@link CopyObjectResult} object containing the information returned by about the
-     *         newly created object, or <code>null</code> if constraints were specified that weren't
-     *         met when attempted to copy the object.
-     * 
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * newly created object, or <code>null</code> if constraints were specified that weren't
+     * met when attempted to copy the object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public CopyObjectResult copyObject(CopyObjectRequest copyObjectRequest)
@@ -1440,22 +1455,18 @@ public interface COS extends COSDirectSpi {
 
     /**
      * Copies a source object to a part of a multipart upload.
-     *
+     * <p>
      * To copy an object, the caller's account must have read access to the source object and write
      * access to the destination bucket.
      * </p>
      *
      * @param copyPartRequest The request object containing all the options for copying an object.
-     *
      * @return CopyPartResult containing the information returned by COS about the newly created
-     *         object, or <code>null</code> if constraints were specified that weren't met when COS
-     *         attempted to copy the object.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * object, or <code>null</code> if constraints were specified that weren't met when COS
+     * attempted to copy the object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public CopyPartResult copyPart(CopyPartRequest copyPartRequest)
             throws CosClientException, CosServiceException;
@@ -1463,44 +1474,40 @@ public interface COS extends COSDirectSpi {
 
     /**
      * Sets the lifecycle configuration for the specified bucket.
-     * 
-     * @param bucketName the bucket name
+     *
+     * @param bucketName                   the bucket name
      * @param bucketLifecycleConfiguration lifecycle config for the bucket
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
 
     public void setBucketLifecycleConfiguration(String bucketName,
-            BucketLifecycleConfiguration bucketLifecycleConfiguration)
-                    throws CosClientException, CosServiceException;
+                                                BucketLifecycleConfiguration bucketLifecycleConfiguration)
+            throws CosClientException, CosServiceException;
 
     /**
      * Sets the lifecycle configuration for the specified bucket.
      *
      * @param setBucketLifecycleConfigurationRequest The request object containing all options for
-     *        setting the bucket lifecycle configuration.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         `------+++++++++++++++++++++++++++++++++++++++++++++++++* request or handling the
-     *         response.
+     *                                               setting the bucket lifecycle configuration.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             `------+++++++++++++++++++++++++++++++++++++++++++++++++* request or handling the
+     *                             response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void setBucketLifecycleConfiguration(
             SetBucketLifecycleConfigurationRequest setBucketLifecycleConfigurationRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
     /**
      * Gets the lifecycle configuration for the specified bucket, or null if the specified bucket
      * does not exist or if no configuration has been established.
-     * 
+     *
      * @param bucketName the bucket name
-     * 
      * @return BucketLifecycleConfiguration the bucket lifecycle configuration
-     * 
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public BucketLifecycleConfiguration getBucketLifecycleConfiguration(String bucketName)
@@ -1511,24 +1518,22 @@ public interface COS extends COSDirectSpi {
      * does not exist or if no configuration has been established.
      *
      * @param getBucketLifecycleConfigurationRequest The request object for retrieving the bucket
-     *        lifecycle configuration.
+     *                                               lifecycle configuration.
      * @return BucketLifecycleConfiguration the bucket lifecycle configuration
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public BucketLifecycleConfiguration getBucketLifecycleConfiguration(
             GetBucketLifecycleConfigurationRequest getBucketLifecycleConfigurationRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
     /**
      * Removes the lifecycle configuration for the bucket specified.
      *
      * @param bucketName the bucket name
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void deleteBucketLifecycleConfiguration(String bucketName)
@@ -1538,15 +1543,16 @@ public interface COS extends COSDirectSpi {
      * Removes the lifecycle configuration for the bucket specified.
      *
      * @param deleteBucketLifecycleConfigurationRequest The request object containing all options
-     *        for removing the bucket lifecycle configuration.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     *                                                  for removing the bucket lifecycle configuration.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void deleteBucketLifecycleConfiguration(
             DeleteBucketLifecycleConfigurationRequest deleteBucketLifecycleConfigurationRequest)
-                    throws CosClientException, CosServiceException;;
+            throws CosClientException, CosServiceException;
+
+    ;
 
     /**
      * <p>
@@ -1567,7 +1573,7 @@ public interface COS extends COSDirectSpi {
      * </p>
      * <p>
      * Objects created before versioning was enabled or when versioning is suspended will be given
-     * the default <code>null</code> version ID (see {@link Constants#NULL_VERSION_ID}). Note that
+     * the default <code>null</code> version ID. Note that
      * the <code>null</code> version ID is a valid version ID and is not the same as not having a
      * version ID.
      * </p>
@@ -1585,17 +1591,14 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param setBucketVersioningConfigurationRequest The request object containing all options for
-     *        setting the bucket versioning configuration.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     *                                                setting the bucket versioning configuration.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public void setBucketVersioningConfiguration(
             SetBucketVersioningConfigurationRequest setBucketVersioningConfigurationRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
 
     /**
@@ -1627,14 +1630,10 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName the bucket name
-     *
      * @return The bucket versioning configuration for the specified bucket.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public BucketVersioningConfiguration getBucketVersioningConfiguration(String bucketName)
             throws CosClientException, CosServiceException;
@@ -1668,19 +1667,15 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param getBucketVersioningConfigurationRequest The request object for retrieving the bucket
-     *        versioning configuration.
-     *
+     *                                                versioning configuration.
      * @return The bucket versioning configuration for the specified bucket.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public BucketVersioningConfiguration getBucketVersioningConfiguration(
             GetBucketVersioningConfigurationRequest getBucketVersioningConfigurationRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
     /**
      * <p>
@@ -1688,12 +1683,11 @@ public interface COS extends COSDirectSpi {
      * bucket policy. If a policy already exists for the specified bucket, the new policy replaces
      * the existing policy.
      * </p>
-     * 
+     *
      * @param bucketName the bucket name
      * @param policyText The policy to apply to the specified bucket.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void setBucketPolicy(String bucketName, String policyText)
@@ -1705,55 +1699,55 @@ public interface COS extends COSDirectSpi {
      * bucket policy. If a policy already exists for the specified bucket, the new policy replaces
      * the existing policy.
      * </p>
-     * 
+     *
      * @param setBucketPolicyRequest The request object containing the details of the bucket and
-     *        policy to update.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     *                               policy to update.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void setBucketPolicy(SetBucketPolicyRequest setBucketPolicyRequest)
             throws CosClientException, CosServiceException;
+
     /**
      * <p>
-     * Gets the policy for the specified bucket. Only the owner of the
-     * bucket can retrieve the policy. If no policy has been set for the bucket,
-     * then an empty result object with a <code>null</code> policy text field will be
-     * returned.
+     * Gets the policy for the specified bucket. Only the owner of the bucket can retrieve the
+     * policy. If no policy has been set for the bucket, then an empty result object with a
+     * <code>null</code> policy text field will be returned.
      * </p>
+     *
      * @param bucketName the bucket name
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
-    public BucketPolicy getBucketPolicy(String bucketName) throws CosClientException, CosServiceException;
+    public BucketPolicy getBucketPolicy(String bucketName)
+            throws CosClientException, CosServiceException;
+
     /**
      * <p>
-     * Gets the policy for the specified bucket. Only the owner of the
-     * bucket can retrieve the policy. If no policy has been set for the bucket,
-     * then an empty result object with a <code>null</code> policy text field will be
-     * returned.
+     * Gets the policy for the specified bucket. Only the owner of the bucket can retrieve the
+     * policy. If no policy has been set for the bucket, then an empty result object with a
+     * <code>null</code> policy text field will be returned.
      * </p>
+     *
      * @param getBucketPolicyRequest get bucket policy request
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     */   
-    public BucketPolicy getBucketPolicy(GetBucketPolicyRequest getBucketPolicyRequest) throws CosClientException, CosServiceException;
+     */
+    public BucketPolicy getBucketPolicy(GetBucketPolicyRequest getBucketPolicyRequest)
+            throws CosClientException, CosServiceException;
 
     /**
      * <p>
      * Deletes the policy associated with the specified bucket. Only the owner of the bucket can
      * delete the bucket policy.
      * </p>
-     * 
+     *
      * @param bucketName the bucket name
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void deleteBucketPolicy(String bucketName)
@@ -1764,11 +1758,10 @@ public interface COS extends COSDirectSpi {
      * Deletes the policy associated with the specified bucket. Only the owner of the bucket can
      * delete the bucket policy.
      * </p>
-     * 
+     *
      * @param bucketName the bucket name
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public void deleteBucketPolicy(DeleteBucketPolicyRequest deleteBucketPolicyRequest)
@@ -1785,15 +1778,12 @@ public interface COS extends COSDirectSpi {
      * object. If the sender is approved, the request proceeds. Otherwise, Qcloud COS returns an
      * error.
      * </p>
-     * 
+     *
      * @param bucketName The name of the bucket containing the object whose ACL is being retrieved.
-     * @param key The key of the object within the specified bucket whose ACL is being retrieved.
-     *
+     * @param key        The key of the object within the specified bucket whose ACL is being retrieved.
      * @return The <code>AccessControlList</code> for the specified Qcloud COS object.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
      */
     public AccessControlList getObjectAcl(String bucketName, String key)
@@ -1812,15 +1802,11 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param getObjectAclRequest the request object containing all the information needed for
-     *        retrieving the object ACL.
-     *
+     *                            retrieving the object ACL.
      * @return The <code>AccessControlList</code> for the specified Qcloud COS object.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public AccessControlList getObjectAcl(GetObjectAclRequest getObjectAclRequest)
             throws CosClientException, CosServiceException;
@@ -1833,16 +1819,13 @@ public interface COS extends COSDirectSpi {
      * checks the ACL to verify the sender was granted access to the bucket or object. If the sender
      * is approved, the request proceeds. Otherwise, returns an error.
      * <p>
-     * 
+     *
      * @param bucketName The name of the bucket containing the object whose ACL is being set.
-     * @param key The key of the object within the specified bucket whose ACL is being set.
-     * 
-     * @param acl The new <code>AccessControlList</code> for the specified object.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @param key        The key of the object within the specified bucket whose ACL is being set.
+     * @param acl        The new <code>AccessControlList</code> for the specified object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public void setObjectAcl(String bucketName, String key, AccessControlList acl)
             throws CosClientException, CosServiceException;
@@ -1855,17 +1838,14 @@ public interface COS extends COSDirectSpi {
      * checks the ACL to verify the sender was granted access to the bucket or object. If the sender
      * is approved, the request proceeds. Otherwise, returns an error.
      * <p>
-     * 
+     *
      * @param bucketName The name of the bucket containing the object whose ACL is being set.
-     * @param key The key of the object within the specified bucket whose ACL is being set.
-     * 
-     * @param acl The new pre-configured <code>CannedAccessControlList</code> for the specified
-     *        object.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @param key        The key of the object within the specified bucket whose ACL is being set.
+     * @param acl        The new pre-configured <code>CannedAccessControlList</code> for the specified
+     *                   object.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public void setObjectAcl(String bucketName, String key, CannedAccessControlList acl)
             throws CosClientException, CosServiceException;
@@ -1881,12 +1861,10 @@ public interface COS extends COSDirectSpi {
      * <p>
      *
      * @param setObjectAclRequest The request object containing the COS object to modify and the ACL
-     *        to set.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                            to set.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public void setObjectAcl(SetObjectAclRequest setObjectAclRequest)
             throws CosClientException, CosServiceException;
@@ -1903,12 +1881,11 @@ public interface COS extends COSDirectSpi {
      * existing <code>AccessControlList</code> for a bucket .
      *
      * @param bucketName The name of the bucket whose ACL is being set
-     * @param acl The new pre-configured <code>CannedAccessControlList</code> for the specified COS
-     *        bucket.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @param acl        The new pre-configured <code>CannedAccessControlList</code> for the specified COS
+     *                   bucket.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public void setBucketAcl(String bucketName, AccessControlList acl)
             throws CosClientException, CosServiceException;
@@ -1925,11 +1902,10 @@ public interface COS extends COSDirectSpi {
      * existing <code>AccessControlList</code> for a bucket .
      *
      * @param bucketName The name of the bucket whose ACL is being set
-     * @param acl The <code>AccessControlList</code> for the specified COS bucket.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @param acl        The <code>AccessControlList</code> for the specified COS bucket.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public void setBucketAcl(String bucketName, CannedAccessControlList acl)
             throws CosClientException, CosServiceException;
@@ -1946,12 +1922,10 @@ public interface COS extends COSDirectSpi {
      * existing <code>AccessControlList</code> for a bucket .
      *
      * @param setBucketAclRequest The request object containing the bucket to modify and the ACL to
-     *        set.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                            set.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in while processing the request.
-     *
      */
     public void setBucketAcl(SetBucketAclRequest setBucketAclRequest)
             throws CosClientException, CosServiceException;
@@ -1965,11 +1939,9 @@ public interface COS extends COSDirectSpi {
      * the sender is approved, the request proceeds. Otherwise, COS returns an error.
      *
      * @param bucketName The name of the bucket whose ACL is being retrieved.
-     *
      * @return The <code>AccessControlList</code> for the specified COS bucket.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public AccessControlList getBucketAcl(String bucketName)
@@ -1984,12 +1956,10 @@ public interface COS extends COSDirectSpi {
      * the sender is approved, the request proceeds. Otherwise, COS returns an error.
      *
      * @param getBucketAclRequest The request containing the name of the bucket whose ACL is being
-     *        retrieved.
-     *
+     *                            retrieved.
      * @return The <code>AccessControlList</code> for the specified COS bucket.
-     *
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public AccessControlList getBucketAcl(GetBucketAclRequest getBucketAclRequest)
@@ -2002,8 +1972,8 @@ public interface COS extends COSDirectSpi {
      *
      * @param bucketName the bucket name
      * @return BucketCrossOriginConfiguration bucket cross origin configuration
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public BucketCrossOriginConfiguration getBucketCrossOriginConfiguration(String bucketName)
@@ -2014,51 +1984,50 @@ public interface COS extends COSDirectSpi {
      * been established.
      *
      * @param getBucketCrossOriginConfigurationRequest The request object for retrieving the bucket
-     *        cross origin configuration.
+     *                                                 cross origin configuration.
      * @return BucketCrossOriginConfiguration bucket cross origin configuration
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public BucketCrossOriginConfiguration getBucketCrossOriginConfiguration(
             GetBucketCrossOriginConfigurationRequest getBucketCrossOriginConfigurationRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
 
     /**
      * Sets the cross origin configuration for the specified bucket.
      *
-     * @param bucketName the bucket name
+     * @param bucketName                     the bucket name
      * @param BucketCrossOriginConfiguration The bucketCrossOriginConfiguration contains all options
-     *        for setting the bucket cross origin configuration.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                                       for setting the bucket cross origin configuration.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public void setBucketCrossOriginConfiguration(String bucketName,
-            BucketCrossOriginConfiguration bucketCrossOriginConfiguration)
-                    throws CosClientException, CosServiceException;
+                                                  BucketCrossOriginConfiguration bucketCrossOriginConfiguration)
+            throws CosClientException, CosServiceException;
 
     /**
      * Sets the cross origin configuration for the specified bucket.
      *
      * @param setBucketCrossOriginConfigurationRequest The request object containing all options for
-     *        setting the bucket cross origin configuration.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                                                 setting the bucket cross origin configuration.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public void setBucketCrossOriginConfiguration(
             SetBucketCrossOriginConfigurationRequest setBucketCrossOriginConfigurationRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
     /**
      * Delete the cross origin configuration for the specified bucket.
      *
      * @param bucketName The bucket name
-     * 
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public void deleteBucketCrossOriginConfiguration(String bucketName)
@@ -2068,46 +2037,46 @@ public interface COS extends COSDirectSpi {
      * Delete the cross origin configuration for the specified bucket.
      *
      * @param deleteBucketCrossOriginConfigurationRequest The request object containing all options
-     *        for deleting the bucket cross origin configuration.
+     *                                                    for deleting the bucket cross origin configuration.
      */
     public void deleteBucketCrossOriginConfiguration(
             DeleteBucketCrossOriginConfigurationRequest deleteBucketCrossOriginConfigurationRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
 
     /**
      * Sets a replication configuration for a bucket.
      *
-     * @param bucketName The bucket name for which the replication configuration is set.
+     * @param bucketName    The bucket name for which the replication configuration is set.
      * @param configuration The replication configuration.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public void setBucketReplicationConfiguration(String bucketName,
-            BucketReplicationConfiguration configuration)
-                    throws CosClientException, CosServiceException;
+                                                  BucketReplicationConfiguration configuration)
+            throws CosClientException, CosServiceException;
 
     /**
      * Sets a replication configuration for the QCloud bucket.
      *
      * @param setBucketReplicationConfigurationRequest The request object containing all the options
-     *        for setting a replication configuration for QCloud bucket.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                                                 for setting a replication configuration for QCloud bucket.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public void setBucketReplicationConfiguration(
             SetBucketReplicationConfigurationRequest setBucketReplicationConfigurationRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
     /**
      * Retrieves the replication configuration for the given QCloud bucket.
      *
      * @param bucketName The bucket name for which the replication configuration is to be retrieved.
      * @return the replication configuration of the bucket.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public BucketReplicationConfiguration getBucketReplicationConfiguration(String bucketName)
@@ -2117,22 +2086,24 @@ public interface COS extends COSDirectSpi {
      * Retrieves the replication configuration for the given QCloud bucket.
      *
      * @param getBucketReplicationConfigurationRequest The request object for retrieving the bucket
-     *        replication configuration.
+     *                                                 replication configuration.
      * @return the replication configuration of the bucket.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     BucketReplicationConfiguration getBucketReplicationConfiguration(
             GetBucketReplicationConfigurationRequest getBucketReplicationConfigurationRequest)
-                    throws CosClientException, CosServiceException;;
+            throws CosClientException, CosServiceException;
+
+    ;
 
     /**
      * Deletes the replication configuration for the given QCloud bucket.
      *
      * @param bucketName The bucket name for which the replication configuration is to be deleted.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     void deleteBucketReplicationConfiguration(String bucketName)
@@ -2142,14 +2113,14 @@ public interface COS extends COSDirectSpi {
      * Deletes the replication configuration for the given QCloud bucket.
      *
      * @param deleteBucketReplicationConfigurationRequest The request object for delete bucket
-     *        replication configuration.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                                                    replication configuration.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     void deleteBucketReplicationConfiguration(
             DeleteBucketReplicationConfigurationRequest deleteBucketReplicationConfigurationRequest)
-                    throws CosClientException, CosServiceException;
+            throws CosClientException, CosServiceException;
 
     /**
      * <p>
@@ -2175,13 +2146,12 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName The name of the bucket containing the desired object.
-     * @param key The key in the specified bucket under which the desired object is stored.
+     * @param key        The key in the specified bucket under which the desired object is stored.
      * @param expiration The time at which the returned pre-signed URL will expire.
-     * 
      * @return A pre-signed URL that can be used to access an COS resource without requiring the
-     *         user of the URL to know the account's credentials.
+     * user of the URL to know the account's credentials.
      * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                            request or handling the response.
      * @see COS#generatePresignedUrl(String, String, Date)
      * @see COS#generatePresignedUrl(String, String, Date, HttpMethodName)
      */
@@ -2212,20 +2182,18 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param bucketName The name of the bucket containing the desired object.
-     * @param key The key in the specified bucket under which the desired object is stored.
+     * @param key        The key in the specified bucket under which the desired object is stored.
      * @param expiration The time at which the returned pre-signed URL will expire.
-     * @param method The HTTP method verb to use for this URL
-     * 
+     * @param method     The HTTP method verb to use for this URL
      * @return A pre-signed URL that can be used to access an COS resource without requiring the
-     *         user of the URL to know the account's credentials.
+     * user of the URL to know the account's credentials.
      * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
-     * 
+     *                            request or handling the response.
      * @see COS#generatePresignedUrl(String, String, Date)
      * @see COS#generatePresignedUrl(String, String, Date, HttpMethodName)
      */
     public URL generatePresignedUrl(String bucketName, String key, Date expiration,
-            HttpMethodName method) throws CosClientException;
+                                    HttpMethodName method) throws CosClientException;
 
     /**
      * <p>
@@ -2251,11 +2219,11 @@ public interface COS extends COSDirectSpi {
      * </p>
      *
      * @param generatePresignedUrlRequest The request object containing all the options for
-     *        generating a pre-signed URL (bucket name, key, expiration date, etc).
+     *                                    generating a pre-signed URL (bucket name, key, expiration date, etc).
      * @return A pre-signed URL that can be used to access an COS resource without requiring the
-     *         user of the URL to know the account's credentials.
+     * user of the URL to know the account's credentials.
      * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     *                            request or handling the response.
      * @see COS#generatePresignedUrl(String, String, Date)
      * @see COS#generatePresignedUrl(String, String, Date, HttpMethod)
      */
@@ -2271,8 +2239,8 @@ public interface COS extends COSDirectSpi {
      * cos:RestoreObject permission to perform this operation.
      *
      * @param request The request object containing all the options for restoring an COS object.
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public void restoreObject(RestoreObjectRequest request)
@@ -2286,12 +2254,11 @@ public interface COS extends COSDirectSpi {
      * will only be accepted when there is no ongoing restore request. One needs to have the new
      * cos:RestoreObject permission to perform this operation.
      *
-     * @param bucketName The name of an existing bucket.
-     * @param key The key under which to store the specified file.
+     * @param bucketName       The name of an existing bucket.
+     * @param key              The key under which to store the specified file.
      * @param expirationInDays The number of days after which the object will expire.
-     * 
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public void restoreObject(String bucketName, String key, int expirationInDays)
@@ -2300,17 +2267,623 @@ public interface COS extends COSDirectSpi {
 
     /**
      * update the object meta.
-     * 
-     * @param bucketName The name of an existing bucket.
-     * @param key The key under which to store the specified file.
+     *
+     * @param bucketName     The name of an existing bucket.
+     * @param key            The key under which to store the specified file.
      * @param objectMetadata object new metadata for the specified object
-     * @throws CosClientException If any errors are encountered in the client while making the
-     *         request or handling the response.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
      * @throws CosServiceException If any errors occurred in COS while processing the request.
      */
     public void updateObjectMetaData(String bucketName, String key, ObjectMetadata objectMetadata)
             throws CosClientException, CosServiceException;
 
+    /**
+     * Returns the website configuration for the specified bucket. Bucket
+     * website configuration allows you to host your static websites entirely
+     * out of COS. To host your website in COS, create a bucket,
+     * upload your files, and configure it as a website. Once your bucket has
+     * been configured as a website, you can access all your content via the
+     * COS website endpoint. To ensure that the existing COS REST
+     * API will continue to behave the same, regardless of whether or not your
+     * bucket has been configured to host a website, a new HTTP endpoint has
+     * been introduced where you can access your content. The bucket content you
+     * want to make available via the website must be publicly readable.
+     *
+     * @param bucketName The name of the bucket whose website configuration is being
+     *                   retrieved.
+     * @return The bucket website configuration for the specified bucket,
+     * otherwise null if there is no website configuration set for the
+     * specified bucket.
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the
+     *                             request.
+     */
+    public BucketWebsiteConfiguration getBucketWebsiteConfiguration(String bucketName)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Returns the website configuration for the specified bucket. Bucket
+     * website configuration allows you to host your static websites entirely
+     * out of COS. To host your website in COS, create a bucket,
+     * upload your files, and configure it as a website. Once your bucket has
+     * been configured as a website, you can access all your content via the
+     * COS website endpoint. To ensure that the existing COS REST
+     * API will continue to behave the same, regardless of whether or not your
+     * bucket has been configured to host a website, a new HTTP endpoint has
+     * been introduced where you can access your content. The bucket content you
+     * want to make available via the website must be publicly readable.
+     *
+     * @param getBucketWebsiteConfigurationRequest The request object for retrieving the bucket website configuration.
+     * @return The bucket website configuration for the specified bucket,
+     * otherwise null if there is no website configuration set for the
+     * specified bucket.
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the
+     *                             request.
+     */
+    public BucketWebsiteConfiguration getBucketWebsiteConfiguration(GetBucketWebsiteConfigurationRequest getBucketWebsiteConfigurationRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Sets the website configuration for the specified bucket. Bucket
+     * website configuration allows you to host your static websites entirely
+     * out COS. To host your website in COS, create a bucket,
+     * upload your files, and configure it as a website. Once your bucket has
+     * been configured as a website, you can access all your content via the
+     * COS website endpoint. To ensure that the existing COS REST
+     * API will continue to behave the same, regardless of whether or not your
+     * bucket has been configured to host a website, a new HTTP endpoint has
+     * been introduced where you can access your content. The bucket content you
+     * want to make available via the website must be publicly readable.
+     *
+     * @param bucketName    The name of the bucket whose website configuration is being
+     *                      set.
+     * @param configuration The configuration describing how the specified bucket will
+     *                      serve web requests (i.e. default index page, error page).
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the
+     *                             request.
+     */
+    public void setBucketWebsiteConfiguration(String bucketName, BucketWebsiteConfiguration configuration)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Sets the website configuration for the specified bucket. Bucket website
+     * configuration allows you to host your static websites entirely out of
+     * COS. To host your website in COS, create a bucket, upload
+     * your files, and configure it as a website. Once your bucket has been
+     * configured as a website, you can access all your content via the COS
+     * website endpoint. To ensure that the existing COS REST API will
+     * continue to behave the same, regardless of whether or not your bucket has
+     * been configured to host a website, a new HTTP endpoint has been
+     * introduced where you can access your content. The bucket content you want
+     * to make available via the website must be publicly readable.
+     *
+     * @param setBucketWebsiteConfigurationRequest The request object containing the name of the bucket whose
+     *                                             website configuration is being updated, and the new website
+     *                                             configuration values.
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the
+     *                             request.
+     */
+    public void setBucketWebsiteConfiguration(SetBucketWebsiteConfigurationRequest setBucketWebsiteConfigurationRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * This operation removes the website configuration for a bucket. Calling
+     * this operation on a bucket with no website configuration does <b>not</b>
+     * throw an exception. Calling this operation a bucket that does not exist
+     * <b>will</b> throw an exception.
+     *
+     * @param bucketName The name of the bucket whose website configuration is being
+     *                   deleted.
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the
+     *                             request.
+     */
+    public void deleteBucketWebsiteConfiguration(String bucketName)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * This operation removes the website configuration for a bucket. Calling
+     * this operation on a bucket with no website configuration does <b>not</b>
+     * throw an exception. Calling this operation a bucket that does not exist
+     * <b>will</b> throw an exception.
+     *
+     * @param deleteBucketWebsiteConfigurationRequest The request object specifying the name of the bucket whose
+     *                                                website configuration is to be deleted.
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the
+     *                             request.
+     */
+    public void deleteBucketWebsiteConfiguration(DeleteBucketWebsiteConfigurationRequest deleteBucketWebsiteConfigurationRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Sets the domain configuration for the specified bucket.
+     *
+     * @param bucketName    The name of the bucket whose domain configuration is being set.
+     * @param configuration The configuration describing the specified bucket custom domain
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the request.
+     */
+    public void setBucketDomainConfiguration(String bucketName, BucketDomainConfiguration configuration)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Sets the domain configuration for the specified bucket.
+     *
+     * @param setBucketDomainConfigurationRequest The request object containing the name of the bucket whose
+     *                                            domain configuration is being updated, and the new domain
+     *                                            configuration values.
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the request.
+     */
+    public void setBucketDomainConfiguration(SetBucketDomainConfigurationRequest setBucketDomainConfigurationRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Returns the domain configuration for the specified bucket.
+     *
+     * @param bucketName The name of the bucket whose domain configuration is being retrieved.
+     * @return The bucket domain configuration for the specified bucket,
+     * otherwise null if there is no domain configuration set for the
+     * specified bucket.
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the request.
+     */
+    public BucketDomainConfiguration getBucketDomainConfiguration(String bucketName)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Returns the domain configuration for the specified bucket.
+     *
+     * @param getBucketDomainConfigurationRequest The request object for retrieving the bucket domain configuration.
+     * @return The bucket domain configuration for the specified bucket,
+     * otherwise null if there is no domain configuration set for the
+     * specified bucket.
+     * @throws CosClientException  If any errors are encountered on the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the request.
+     */
+    public BucketDomainConfiguration getBucketDomainConfiguration(GetBucketDomainConfigurationRequest getBucketDomainConfigurationRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * <p>
+     * Gets the logging configuration for the specified bucket.
+     * The bucket logging configuration object indicates if server access logging is
+     * enabled for the specified bucket, the destination bucket
+     * where server access logs are delivered, and the optional log file prefix.
+     * </p>
+     *
+     * @param bucketName The name of the bucket whose bucket logging configuration is
+     *                   being retrieved.
+     * @return The bucket logging configuration for the specified bucket.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the
+     *                             request.
+     */
+    public BucketLoggingConfiguration getBucketLoggingConfiguration(String bucketName)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * <p>
+     * Gets the logging configuration for the specified bucket. The bucket
+     * logging configuration object indicates if server access logging is
+     * enabled for the specified bucket, the destination bucket where server access
+     * logs are delivered, and the optional log file prefix.
+     * </p>
+     *
+     * @param getBucketLoggingConfigurationRequest The request object for retrieving the bucket logging
+     *                                             configuration.
+     * @return The bucket logging configuration for the specified bucket.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the
+     *                             request.
+     */
+    public BucketLoggingConfiguration getBucketLoggingConfiguration(
+            GetBucketLoggingConfigurationRequest getBucketLoggingConfigurationRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * <p>
+     * Sets the logging configuration for the specified bucket.
+     * The bucket logging configuration object indicates whether server access logging is
+     * enabled or not for the specified bucket, the destination bucket
+     * where server access logs are delivered, and the optional log file prefix.
+     * </p>
+     *
+     * @param setBucketLoggingConfigurationRequest The request object containing all options for setting the
+     *                                             bucket logging configuration.
+     * @throws CosClientException  If any errors are encountered in the client while making the
+     *                             request or handling the response.
+     * @throws CosServiceException If any errors occurred in COS while processing the
+     *                             request.
+     */
+    public void setBucketLoggingConfiguration(SetBucketLoggingConfigurationRequest setBucketLoggingConfigurationRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Deletes an inventory configuration (identified by the inventory ID) from the bucket.
+     *
+     * @param bucketName The name of the bucket from which the inventory configuration is to be deleted.
+     * @param id         The ID of the inventory configuration to delete.
+     */
+    public DeleteBucketInventoryConfigurationResult deleteBucketInventoryConfiguration(
+            String bucketName, String id) throws CosClientException, CosServiceException;
+
+    /**
+     * Deletes an inventory configuration (identified by the inventory ID) from the bucket.
+     *
+     * @param deleteBucketInventoryConfigurationRequest The request object for deleting an inventory configuration.
+     */
+    public DeleteBucketInventoryConfigurationResult deleteBucketInventoryConfiguration(
+            DeleteBucketInventoryConfigurationRequest deleteBucketInventoryConfigurationRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Returns an inventory configuration (identified by the inventory ID) from the bucket.
+     *
+     * @param bucketName The name of the bucket to get the inventory configuration from.
+     * @param id         The ID of the inventory configuration to delete.
+     * @return An {@link GetBucketInventoryConfigurationResult} object containing the inventory configuration.
+     */
+    public GetBucketInventoryConfigurationResult getBucketInventoryConfiguration(
+            String bucketName, String id) throws CosClientException, CosServiceException;
+
+    /**
+     * Returns an inventory configuration (identified by the inventory ID) from the bucket.
+     *
+     * @param getBucketInventoryConfigurationRequest The request object to retreive an inventory configuration.
+     * @return An {@link GetBucketInventoryConfigurationResult} object containing the inventory configuration.
+     */
+    public GetBucketInventoryConfigurationResult getBucketInventoryConfiguration(
+            GetBucketInventoryConfigurationRequest getBucketInventoryConfigurationRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Sets an inventory configuration (identified by the inventory ID) to the bucket.
+     *
+     * @param bucketName             The name of the bucket to set the inventory configuration to.
+     * @param inventoryConfiguration The inventory configuration to set.
+     */
+    public SetBucketInventoryConfigurationResult setBucketInventoryConfiguration(
+            String bucketName, InventoryConfiguration inventoryConfiguration)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Sets an inventory configuration (identified by the inventory ID) to the bucket.
+     *
+     * @param setBucketInventoryConfigurationRequest The request object for setting an inventory configuration.
+     */
+    public SetBucketInventoryConfigurationResult setBucketInventoryConfiguration(
+            SetBucketInventoryConfigurationRequest setBucketInventoryConfigurationRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Returns the list of inventory configurations for the bucket.
+     *
+     * @param listBucketInventoryConfigurationsRequest The request object to list the inventory configurations in a bucket.
+     * @return An {@link ListBucketInventoryConfigurationsResult} object containing the list of {@link InventoryConfiguration}s.
+     */
+    public ListBucketInventoryConfigurationsResult listBucketInventoryConfigurations(
+            ListBucketInventoryConfigurationsRequest listBucketInventoryConfigurationsRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Gets the tagging configuration for the specified bucket, or null if
+     * the specified bucket does not exist, or if no configuration has been established.
+     *
+     * @param bucketName The name of the bucket for which to retrieve tagging
+     *                   configuration.
+     * @see COSClient#getBucketTaggingConfiguration(GetBucketTaggingConfigurationRequest)
+     * @see <a href="http://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/GetBucketTagging">AWS API Documentation</a>
+     */
+    public BucketTaggingConfiguration getBucketTaggingConfiguration(String bucketName);
+
+    /**
+     * Gets the tagging configuration for the specified bucket, or null if
+     * the specified bucket does not exist, or if no configuration has been established.
+     *
+     * @param getBucketTaggingConfigurationRequest The request object for retrieving the bucket tagging
+     *                                             configuration.
+     * @see COSClient#getBucketTaggingConfiguration(String)
+     * @see <a href="http://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/GetBucketTagging">AWS API Documentation</a>
+     */
+    public BucketTaggingConfiguration getBucketTaggingConfiguration(
+            GetBucketTaggingConfigurationRequest getBucketTaggingConfigurationRequest);
+
+    /**
+     * Sets the tagging configuration for the specified bucket.
+     *
+     * @param bucketName                 The name of the bucket for which to set the tagging
+     *                                   configuration.
+     * @param bucketTaggingConfiguration The new tagging configuration for this bucket, which
+     *                                   completely replaces any existing configuration.
+     * @see <a href="http://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/PutBucketTagging">AWS API Documentation</a>
+     */
+    public void setBucketTaggingConfiguration(String bucketName, BucketTaggingConfiguration bucketTaggingConfiguration);
+
+    /**
+     * Sets the tagging configuration for the specified bucket.
+     *
+     * @param setBucketTaggingConfigurationRequest The request object containing all options for setting the
+     *                                             bucket tagging configuration.
+     * @see <a href="http://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/PutBucketTagging">AWS API Documentation</a>
+     */
+    public void setBucketTaggingConfiguration(SetBucketTaggingConfigurationRequest setBucketTaggingConfigurationRequest);
+
+    /**
+     * Removes the tagging configuration for the bucket specified.
+     *
+     * @param bucketName The name of the bucket for which to remove the tagging
+     *                   configuration.
+     * @see <a href="http://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/DeleteBucketTagging">AWS API Documentation</a>
+     */
+    public void deleteBucketTaggingConfiguration(String bucketName);
+
+    /**
+     * Removes the tagging configuration for the bucket specified.
+     *
+     * @param deleteBucketTaggingConfigurationRequest The request object containing all options for removing the
+     *                                                bucket tagging configuration.
+     * @see <a href="http://docs.aws.amazon.com/goto/WebAPI/s3-2006-03-01/DeleteBucketTagging">AWS API Documentation</a>
+     */
+    public void deleteBucketTaggingConfiguration(
+            DeleteBucketTaggingConfigurationRequest deleteBucketTaggingConfigurationRequest);
+
+    /**
+     * Get the intelligent configuration for the specified bucket.
+     *
+     * @param getBucketIntelligentTierConfigurationRequest
+     * @return
+     */
+    BucketIntelligentTierConfiguration getBucketIntelligentTierConfiguration(GetBucketIntelligentTierConfigurationRequest getBucketIntelligentTierConfigurationRequest);
+
+
+    /**
+     * Get the intelligent configuration for the specified bucket.
+     *
+     * @param bucketName
+     * @return
+     */
+    BucketIntelligentTierConfiguration getBucketIntelligentTierConfiguration(String bucketName);
+
+    /**
+     * Sets the intelligent configuration for the specified bucket.
+     *
+     * @param setBucketIntelligentTierConfigurationRequest The request object containing all options for setting the
+     *                                                     bucket intelligent configuration.
+     */
+    void setBucketIntelligentTieringConfiguration(SetBucketIntelligentTierConfigurationRequest setBucketIntelligentTierConfigurationRequest);
+
+    /**
+     * append data to an COS object
+     *
+     * @param appendObjectRequest
+     * @return
+     * @throws CosServiceException
+     * @throws CosClientException
+     */
+    public AppendObjectResult appendObject(AppendObjectRequest appendObjectRequest)
+            throws CosServiceException, CosClientException;
+
+    /**
+     * This operation filters the contents of an COS object based on a simple Structured Query Language (SQL) statement.
+     * In the request, along with the SQL expression, you must also specify a data serialization format (JSON or CSV) of the
+     * object. COS uses this to parse object data into records, and returns only records that match the specified SQL
+     * expression. You must also specify the data serialization format for the response.
+     *
+     * @param selectRequest The request object for selecting object content.
+     * @return A {@link SelectObjectContentResult}.
+     * @throws CosClientException
+     * @throws CosServiceException
+     */
+    SelectObjectContentResult selectObjectContent(SelectObjectContentRequest selectRequest)
+            throws CosClientException, CosServiceException;
+
+    /**
+     * Returns the tags for the specified object.
+     *
+     * @param getObjectTaggingRequest The request object containing all the options on how to
+     *                                retrieve the COS object tags.
+     * @return The tags for the specified object.
+     */
+    public GetObjectTaggingResult getObjectTagging(GetObjectTaggingRequest getObjectTaggingRequest);
+
+    /**
+     * Set the tags for the specified object.
+     *
+     * @param setObjectTaggingRequest The request object containing all the options for setting the
+     *                                tags for the specified object.
+     */
+    public SetObjectTaggingResult setObjectTagging(SetObjectTaggingRequest setObjectTaggingRequest);
+
+    /**
+     * Remove the tags for the specified object.
+     *
+     * @param deleteObjectTaggingRequest The request object containing all the options for deleting
+     *                                   the tags for the specified object.
+     * @return a {@link DeleteObjectTaggingResult} object containing the
+     * information returned by COS for the the tag deletion.
+     */
+    public DeleteObjectTaggingResult deleteObjectTagging(DeleteObjectTaggingRequest deleteObjectTaggingRequest);
+
+    /**
+     * =====================================================
+     * 数据万象相关接口
+     * =====================================================
+     */
+
+    /**
+     * CreateMediaJobs 接口用于提交一个任务。 https://cloud.tencent.com/document/product/460/38936
+     *
+     * @param req
+     */
+    MediaJobResponse createMediaJobs(MediaJobsRequest req) throws UnsupportedEncodingException;
+
+    /**
+     * CancelMediaJob 接口用于取消一个任务。  https://cloud.tencent.com/document/product/460/38939
+     */
+    Boolean cancelMediaJob(MediaJobsRequest req);
+
+    /**
+     * DescribeMediaJob 用于查询指定的任务。  https://cloud.tencent.com/document/product/460/38937
+     *
+     * @return
+     */
+    MediaJobResponse describeMediaJob(MediaJobsRequest req);
+
+    /**
+     * DescribeMediaJobs 用于拉取符合条件的任务。  https://cloud.tencent.com/document/product/460/38938
+     */
+    MediaListJobResponse describeMediaJobs(MediaJobsRequest cIMediaJobsRequest);
+
+    /**
+     * DescribeMediaQueues 接口用于搜索队列。 https://cloud.tencent.com/document/product/460/38913
+     */
+    MediaListQueueResponse describeMediaQueues(MediaQueueRequest mediaQueueRequest);
+
+    /**
+     * UpdateMediaQueue 接口用于更新队列。  https://cloud.tencent.com/document/product/460/42324
+     */
+    MediaQueueResponse updateMediaQueue(MediaQueueRequest mediaQueueRequest) throws UnsupportedEncodingException;
+
+    /**
+     * DescribeMediaBuckets 接口用于查询存储桶是否已开通媒体处理功能。  https://cloud.tencent.com/document/product/460/38914
+     */
+    MediaBucketResponse describeMediaBuckets(MediaBucketRequest mediaBucketRequest);
+
+    /**
+     * CreateMediaTemplate 用于新增模板。。
+     * 动图模板 https://cloud.tencent.com/document/product/460/46989
+     * 截图模板 https://cloud.tencent.com/document/product/460/46994
+     * 转码模板 https://cloud.tencent.com/document/product/460/46999
+     */
+    MediaTemplateResponse createMediaTemplate(MediaTemplateRequest request) throws UnsupportedEncodingException;
+
+    /**
+     * DeleteMediaTemplate 用于删除模板。 https://cloud.tencent.com/document/product/460/46990
+     *
+     * @return
+     */
+    Boolean deleteMediaTemplate(MediaTemplateRequest request);
+
+    /**
+     * DescribeMediaTemplates 用于查询动图模板。  https://cloud.tencent.com/document/product/460/46991
+     */
+    MediaListTemplateResponse describeMediaTemplates(MediaTemplateRequest request);
+
+    /**
+     * UpdateMediaTemplate 用于更新模板。。  https://cloud.tencent.com/document/product/460/46992
+     */
+    Boolean updateMediaTemplate(MediaTemplateRequest request) throws UnsupportedEncodingException;
+
+    /**
+     * GenerateSnapshot 接口用于获取媒体文件某个时间的截图，输出的截图统一为 jpeg 格式。
+     * https://cloud.tencent.com/document/product/460/38934
+     */
+    SnapshotResponse generateSnapshot(SnapshotRequest request) throws UnsupportedEncodingException;
+
+    /**
+     * GenerateMediainfo 接口用于获取媒体文件的信息。 https://cloud.tencent.com/document/product/460/38935
+     */
+    MediaInfoResponse generateMediainfo(MediaInfoRequest request) throws UnsupportedEncodingException;
+
+    /**
+     * DeleteWorkflow 接口用于删除工作流。 https://cloud.tencent.com/document/product/460/45947
+     */
+    Boolean deleteWorkflow(MediaWorkflowListRequest request);
+
+    /**
+     * DescribeWorkflow 接口用于搜索工作流。  https://cloud.tencent.com/document/product/460/45948
+     */
+    MediaWorkflowListResponse describeWorkflow(MediaWorkflowListRequest request);
+
+    /**
+     * DescribeWorkflowExecution 接口用于获取工作流实例详情。 https://cloud.tencent.com/document/product/460/45949
+     */
+    MediaWorkflowExecutionResponse describeWorkflowExecution(MediaWorkflowListRequest request);
+
+    /**
+     * DescribeWorkflowExecutions 接口用于获取工作流实例列表。 https://cloud.tencent.com/document/product/460/45950
+     */
+    MediaWorkflowExecutionsResponse describeWorkflowExecutions(MediaWorkflowListRequest request);
+
+    /**
+     * CreateDocProcessJobs 接口用于提交一个文档预览任务。 https://cloud.tencent.com/document/product/460/46942
+     */
+    DocJobResponse createDocProcessJobs(DocJobRequest request);
+
+    /**
+     * DescribeDocProcessJob 用于查询指定的文档预览任务。 https://cloud.tencent.com/document/product/460/46943
+     */
+    DocJobResponse describeDocProcessJob(DocJobRequest request);
+
+    /**
+     * DescribeDocProcessJobs 用于拉取符合条件的文档预览任务。 https://cloud.tencent.com/document/product/460/46944
+     */
+    DocJobListResponse describeDocProcessJobs(DocJobListRequest request);
+
+    /**
+     * DescribeDocProcessQueues 接口用于查询文档预览队列。 https://cloud.tencent.com/document/product/460/46946
+     * @return
+     */
+    DocListQueueResponse describeDocProcessQueues(DocQueueRequest request);
+
+    /**
+     * UpdateDocProcessQueue 接口用于更新文档预览队列。https://cloud.tencent.com/document/product/460/46947
+     * @return
+     */
+    boolean updateDocProcessQueue(DocQueueRequest request);
+
+    /**
+     * DescribeDocProcessBuckets 接口用于查询存储桶是否已开通文档预览功能。https://cloud.tencent.com/document/product/460/46945
+     */
+    DocBucketResponse describeDocProcessBuckets(DocBucketRequest request);
+
+    /**
+     * process Image 接口用于对图片进行处理
+     */
+    CIUploadResult processImage(ImageProcessRequest request);
+
+    /**
+     * ImageAuditing图片审核  https://cloud.tencent.com/document/product/460/37318
+     */
+    ImageAuditingResponse imageAuditing(ImageAuditingRequest request);
+
+    /**
+     * CreateVideoAuditingJob 视频审核任务发起接口 https://cloud.tencent.com/document/product/460/46427
+     */
+    VideoAuditingResponse createVideoAuditingJob(VideoAuditingRequest request);
+
+    /**
+     * DescribeAuditingJob 视频审核任务查询接口 https://cloud.tencent.com/document/product/460/46926
+     */
+    VideoAuditingResponse describeAuditingJob(VideoAuditingRequest request);
+
+    /**
+     * CreateAudioAuditingJobs 音频审核任务创建接口 https://cloud.tencent.com/document/product/460/53395
+     */
+    AudioAuditingResponse createAudioAuditingJobs(AudioAuditingRequest request);
+
+    /**
+     * DescribeAudioAuditingJob 音频审核任务查询接口 https://cloud.tencent.com/document/product/460/53396
+     */
+    AudioAuditingResponse describeAudioAuditingJob(AudioAuditingRequest request);
 }
 
 

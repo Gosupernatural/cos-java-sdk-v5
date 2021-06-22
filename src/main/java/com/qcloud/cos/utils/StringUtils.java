@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.utils;
 
 import java.math.BigDecimal;
@@ -153,7 +171,7 @@ public class StringUtils {
         }
         return value.isEmpty();
     }
-    
+
     /**
      * Removes any surrounding quotes from the specified string and returns a
      * new string.
@@ -173,7 +191,7 @@ public class StringUtils {
 
         return s;
     }
-    
+
     /**
      * Returns a new string created by joining each of the strings in the
      * specified list together, with a comma between them.
@@ -196,5 +214,13 @@ public class StringUtils {
         }
 
         return result.toString();
+    }
+
+    /**
+     * Performs a case insensitive comparison and returns true if the data
+     * begins with the given sequence.
+     */
+    public static boolean beginsWithIgnoreCase(final String data, final String seq) {
+        return data.regionMatches(true, 0, seq, 0, seq.length());
     }
 }

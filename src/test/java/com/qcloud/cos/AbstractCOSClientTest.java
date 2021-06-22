@@ -1,6 +1,10 @@
 package com.qcloud.cos;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -14,37 +18,53 @@ import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 import com.qcloud.cos.auth.BasicCOSCredentials;
+import com.qcloud.cos.auth.BasicSessionCredentials;
 import com.qcloud.cos.auth.COSCredentials;
+import com.qcloud.cos.auth.COSCredentialsProvider;
 import com.qcloud.cos.auth.COSStaticCredentialsProvider;
+import com.qcloud.cos.auth.InstanceCredentialsFetcher;
+import com.qcloud.cos.auth.InstanceCredentialsProvider;
+import com.qcloud.cos.auth.InstanceMetadataCredentialsEndpointProvider;
+import com.qcloud.cos.endpoint.UserSpecifiedEndpointBuilder;
 import com.qcloud.cos.exception.CosServiceException;
 import com.qcloud.cos.internal.SkipMd5CheckStrategy;
 import com.qcloud.cos.internal.crypto.CryptoConfiguration;
 import com.qcloud.cos.internal.crypto.CryptoMode;
 import com.qcloud.cos.internal.crypto.EncryptionMaterials;
+import com.qcloud.cos.internal.crypto.EncryptionMaterialsProvider;
+import com.qcloud.cos.internal.crypto.KMSEncryptionMaterials;
+import com.qcloud.cos.internal.crypto.KMSEncryptionMaterialsProvider;
 import com.qcloud.cos.internal.crypto.QCLOUDKMS;
 import com.qcloud.cos.internal.crypto.StaticEncryptionMaterialsProvider;
 import com.qcloud.cos.model.AbortMultipartUploadRequest;
 import com.qcloud.cos.model.AccessControlList;
+import com.qcloud.cos.model.AppendObjectRequest;
+import com.qcloud.cos.model.AppendObjectResult;
 import com.qcloud.cos.model.Bucket;
+import com.qcloud.cos.model.BucketVersioningConfiguration;
+import com.qcloud.cos.model.COSObjectSummary;
 import com.qcloud.cos.model.COSVersionSummary;
-import com.qcloud.cos.model.CannedAccessControlList;
 import com.qcloud.cos.model.CompleteMultipartUploadRequest;
 import com.qcloud.cos.model.CompleteMultipartUploadResult;
 import com.qcloud.cos.model.CreateBucketRequest;
+import com.qcloud.cos.model.GetBucketVersioningConfigurationRequest;
 import com.qcloud.cos.model.GetObjectMetadataRequest;
 import com.qcloud.cos.model.GetObjectRequest;
 import com.qcloud.cos.model.InitiateMultipartUploadRequest;
 import com.qcloud.cos.model.InitiateMultipartUploadResult;
 import com.qcloud.cos.model.ListMultipartUploadsRequest;
+import com.qcloud.cos.model.ListObjectsRequest;
 import com.qcloud.cos.model.ListPartsRequest;
 import com.qcloud.cos.model.ListVersionsRequest;
 import com.qcloud.cos.model.MultipartUpload;
 import com.qcloud.cos.model.MultipartUploadListing;
+import com.qcloud.cos.model.ObjectListing;
 import com.qcloud.cos.model.ObjectMetadata;
 import com.qcloud.cos.model.PartETag;
 import com.qcloud.cos.model.PartListing;
@@ -63,22 +83,31 @@ import com.qcloud.cos.model.VersionListing;
 import com.qcloud.cos.region.Region;
 import com.qcloud.cos.utils.DateUtils;
 import com.qcloud.cos.utils.Md5Utils;
+import com.tencent.cloud.CosStsClient;
+
+import org.json.JSONObject;
 
 public class AbstractCOSClientTest {
     protected static String appid = null;
+    protected static String accountId = null;
     protected static String secretId = null;
     protected static String secretKey = null;
     protected static String region = null;
     protected static String bucket = null;
+    protected static String generalApiEndpoint = null;
+    protected static String serviceApiEndpoint = null;
     protected static ClientConfig clientConfig = null;
     protected static COSClient cosclient = null;
     protected static File tmpDir = null;
+    protected static String cmk = null;
 
     protected static boolean useClientEncryption = false;
     protected static boolean useServerEncryption = false;
     protected static QCLOUDKMS qcloudkms = null;
     protected static EncryptionMaterials encryptionMaterials = null;
     protected static CryptoConfiguration cryptoConfiguration = null;
+    protected static boolean useCVMInstanceCredentials = false;
+    protected static boolean useCPMInstanceCredentials = false;
 
     protected static File buildTestFile(long fileSize) throws IOException {
         String prefix = String.format("ut_size_%d_time_%d_", fileSize, System.currentTimeMillis());
@@ -124,10 +153,14 @@ public class AbstractCOSClientTest {
 
     protected static boolean initConfig() throws IOException {
         appid = System.getenv("appid");
+        accountId = System.getenv("accountId");
         secretId = System.getenv("secretId");
         secretKey = System.getenv("secretKey");
         region = System.getenv("region");
         bucket = System.getenv("bucket");
+        generalApiEndpoint = System.getenv("generalApiEndpoint");
+        serviceApiEndpoint = System.getenv("serviceApiEndpoint");
+        cmk = System.getenv("cmk");
 
         File propFile = new File("ut_account.prop");
         if (propFile.exists() && propFile.canRead()) {
@@ -137,10 +170,17 @@ public class AbstractCOSClientTest {
                 fis = new FileInputStream(propFile);
                 prop.load(fis);
                 appid = prop.getProperty("appid");
+                accountId = prop.getProperty("accountId");
                 secretId = prop.getProperty("secretId");
                 secretKey = prop.getProperty("secretKey");
                 region = prop.getProperty("region");
                 bucket = prop.getProperty("bucket");
+                generalApiEndpoint = prop.getProperty("generalApiEndpoint");
+                serviceApiEndpoint = prop.getProperty("serviceApiEndpoint");
+                useCPMInstanceCredentials = Boolean.parseBoolean(prop.getProperty("useCPMInstanceCredentials", "false"
+                ));
+                useCVMInstanceCredentials = Boolean.parseBoolean(prop.getProperty("useCVMInstanceCredentials", "false"));
+                cmk = prop.getProperty("cmk");
             } finally {
                 if (fis != null) {
                     try {
@@ -167,17 +207,72 @@ public class AbstractCOSClientTest {
     }
 
     protected static void initNormalCOSClient() {
-        COSCredentials cred = new BasicCOSCredentials(secretId, secretKey);
+        if(useCVMInstanceCredentials) {
+            cosclient = buildCVMInstanceCredentialsCOSClient();
+        }else if (useCPMInstanceCredentials){
+            cosclient = buildCPMInstanceCredentialsCOSClient();
+        }else {
+            COSCredentials cred = new BasicCOSCredentials(secretId, secretKey);
+            clientConfig = new ClientConfig(new Region(region));
+            if (generalApiEndpoint != null && generalApiEndpoint.trim().length() > 0 &&
+                    serviceApiEndpoint != null && serviceApiEndpoint.trim().length() > 0) {
+                UserSpecifiedEndpointBuilder userSpecifiedEndpointBuilder =
+                        new UserSpecifiedEndpointBuilder(generalApiEndpoint, serviceApiEndpoint);
+                clientConfig.setEndpointBuilder(userSpecifiedEndpointBuilder);
+            }
+            cosclient = new COSClient(cred, clientConfig);
+        }
+    }
+
+    protected static COSClient buildTemporyCredentialsCOSClient(long tokenDuration) {
+        TemporyToken temporyToken = fetchTempToken(tokenDuration);
+        BasicSessionCredentials tempCred =
+                new BasicSessionCredentials(temporyToken.getTempSecretId(),
+                        temporyToken.getTempSecretKey(), temporyToken.getTempToken());
+        ClientConfig temporyClientConfig = new ClientConfig(new Region(region));
+        COSClient tempCOSClient = new COSClient(tempCred, temporyClientConfig);
+        return tempCOSClient;
+    }
+
+    protected static COSClient buildCVMInstanceCredentialsCOSClient() {
+        InstanceMetadataCredentialsEndpointProvider endpointProvider =
+                new InstanceMetadataCredentialsEndpointProvider(InstanceMetadataCredentialsEndpointProvider.Instance.CVM);
+
+        InstanceCredentialsFetcher instanceCredentialsFetcher = new InstanceCredentialsFetcher(endpointProvider);
+        COSCredentialsProvider cosCredentialsProvider = new InstanceCredentialsProvider(instanceCredentialsFetcher);
         clientConfig = new ClientConfig(new Region(region));
-        cosclient = new COSClient(cred, clientConfig);
+        return new COSClient(cosCredentialsProvider, clientConfig);
+    }
+
+    protected static COSClient buildCPMInstanceCredentialsCOSClient() {
+        InstanceMetadataCredentialsEndpointProvider endpointProvider =
+                new InstanceMetadataCredentialsEndpointProvider(InstanceMetadataCredentialsEndpointProvider.Instance.CPM);
+
+        InstanceCredentialsFetcher instanceCredentialsFetcher = new InstanceCredentialsFetcher(endpointProvider);
+        COSCredentialsProvider cosCredentialsProvider = new InstanceCredentialsProvider(instanceCredentialsFetcher);
+        clientConfig = new ClientConfig(new Region(region));
+        return new COSClient(cosCredentialsProvider, clientConfig);
     }
 
     protected static void initEncryptionClient() {
         COSCredentials cred = new BasicCOSCredentials(secretId, secretKey);
         clientConfig = new ClientConfig(new Region(region));
+        if (generalApiEndpoint != null && generalApiEndpoint.trim().length() > 0 &&
+                serviceApiEndpoint != null && serviceApiEndpoint.trim().length() > 0) {
+            UserSpecifiedEndpointBuilder userSpecifiedEndpointBuilder = new UserSpecifiedEndpointBuilder(generalApiEndpoint, serviceApiEndpoint);
+            clientConfig.setEndpointBuilder(userSpecifiedEndpointBuilder);
+        }
+
+        EncryptionMaterialsProvider encryptionMaterialsProvider;
+        if (encryptionMaterials instanceof KMSEncryptionMaterials) {
+            KMSEncryptionMaterials kmsEncryptionMaterials = new KMSEncryptionMaterials(cmk);
+            encryptionMaterialsProvider = new KMSEncryptionMaterialsProvider(kmsEncryptionMaterials);
+        } else {
+            encryptionMaterialsProvider = new StaticEncryptionMaterialsProvider(encryptionMaterials);
+        }
+
         cosclient = new COSEncryptionClient(qcloudkms, new COSStaticCredentialsProvider(cred),
-                new StaticEncryptionMaterialsProvider(encryptionMaterials), clientConfig,
-                cryptoConfiguration);
+                encryptionMaterialsProvider, clientConfig, cryptoConfiguration);
     }
 
     public static void initCosClient() throws Exception {
@@ -189,14 +284,16 @@ public class AbstractCOSClientTest {
         if (!tmpDir.exists()) {
             tmpDir.mkdirs();
         }
-        createBucket();
+        deleteBucket();             // 先清理掉原先的bucket
+        createBucket();             // 然后再重新创建
     }
 
     private static void createBucket() throws Exception {
         try {
+            // 避免有查询缓存，导致创建bucket失败
+            Thread.sleep(5000L);
             String bucketName = bucket;
             CreateBucketRequest createBucketRequest = new CreateBucketRequest(bucketName);
-            createBucketRequest.setCannedAcl(CannedAccessControlList.PublicRead);
             Bucket createdBucket = cosclient.createBucket(createBucketRequest);
             assertEquals(bucketName, createdBucket.getName());
             Thread.sleep(5000L);
@@ -228,6 +325,7 @@ public class AbstractCOSClientTest {
         }
     }
 
+
     private static void clearObjectVersions() throws Exception {
         ListVersionsRequest listVersionsReq = new ListVersionsRequest();
         listVersionsReq.setBucketName(bucket);
@@ -250,10 +348,41 @@ public class AbstractCOSClientTest {
 
     private static void clearBucket() throws Exception {
         abortAllNotFinishedMultipartUpload();
-        clearObjectVersions();
+        // 先判断bucket是否开启了版本控制
+        GetBucketVersioningConfigurationRequest getBucketVersioningConfigurationRequest =
+                new GetBucketVersioningConfigurationRequest(bucket);
+        BucketVersioningConfiguration bucketVersioningConfiguration = cosclient.getBucketVersioningConfiguration(
+                getBucketVersioningConfigurationRequest
+        );
+        if (bucketVersioningConfiguration.getStatus().compareToIgnoreCase(BucketVersioningConfiguration.ENABLED) == 0) {
+            clearObjectVersions();
+        }
+        String nextMarker = "";
+        boolean isTruncated = false;
+        do {
+            ListObjectsRequest listObjectsRequest = new ListObjectsRequest();
+            listObjectsRequest.setBucketName(bucket);
+            listObjectsRequest.setMaxKeys(1000);
+            listObjectsRequest.setPrefix("");
+            listObjectsRequest.setDelimiter("");
+            listObjectsRequest.setMarker(nextMarker);
+            ObjectListing objectListing = cosclient.listObjects(listObjectsRequest);
+            for (COSObjectSummary cosObjectSummary : objectListing.getObjectSummaries()) {
+                String key = cosObjectSummary.getKey();
+                // 删除这个key
+                System.out.println(key);
+                cosclient.deleteObject(bucket, key);
+            }
+            nextMarker = objectListing.getNextMarker();
+            isTruncated = objectListing.isTruncated();
+        } while (isTruncated);
     }
 
     private static void deleteBucket() throws Exception {
+        if (!cosclient.doesBucketExist(bucket)) {
+            return;
+        }
+
         try {
             clearBucket();
             cosclient.deleteBucket(bucket);
@@ -285,7 +414,7 @@ public class AbstractCOSClientTest {
 
     // 从本地上传
     protected static PutObjectResult putObjectFromLocalFile(File localFile, String key,
-            SSECustomerKey sseCKey, SSECOSKeyManagementParams params) {
+                                                            SSECustomerKey sseCKey, SSECOSKeyManagementParams params) {
         if (!judgeUserInfoValid()) {
             return null;
         }
@@ -324,7 +453,7 @@ public class AbstractCOSClientTest {
 
     // 流式上传
     protected static void putObjectFromLocalFileByInputStream(File localFile, long uploadSize,
-            String uploadEtag, String key) {
+                                                              String uploadEtag, String key) {
         if (!judgeUserInfoValid()) {
             return;
         }
@@ -334,7 +463,7 @@ public class AbstractCOSClientTest {
     }
 
     protected static void putObjectFromLocalFileByInputStream(File localFile, long uploadSize,
-            String uploadEtag, String key, ObjectMetadata objectMetadata) {
+                                                              String uploadEtag, String key, ObjectMetadata objectMetadata) {
         if (!judgeUserInfoValid()) {
             return;
         }
@@ -362,13 +491,10 @@ public class AbstractCOSClientTest {
                 }
             }
         }
-
     }
 
-
-
     protected static ObjectMetadata headSimpleObject(String key, long expectedLength,
-            String expectedEtag) {
+                                                     String expectedEtag) {
         ObjectMetadata objectMetadata =
                 cosclient.getObjectMetadata(new GetObjectMetadataRequest(bucket, key));
         if (!useClientEncryption) {
@@ -377,7 +503,7 @@ public class AbstractCOSClientTest {
             assertEquals(expectedLength,
                     Long.valueOf(
                             objectMetadata.getUserMetaDataOf(Headers.UNENCRYPTED_CONTENT_LENGTH))
-                    .longValue());
+                            .longValue());
         }
         if (useClientEncryption) {
             assertEquals(false, expectedEtag.equals(objectMetadata.getETag()));
@@ -389,7 +515,7 @@ public class AbstractCOSClientTest {
     }
 
     protected static ObjectMetadata headMultiPartObject(String key, long expectedLength,
-            int expectedPartNum) {
+                                                        int expectedPartNum) {
         ObjectMetadata objectMetadata =
                 cosclient.getObjectMetadata(new GetObjectMetadataRequest(bucket, key));
         if (!useClientEncryption) {
@@ -409,7 +535,7 @@ public class AbstractCOSClientTest {
 
     // 下载COS的object
     protected static void getObject(String key, File localDownFile, long[] range,
-            long expectedLength, String expectedMd5) {
+                                    long expectedLength, String expectedMd5) {
         System.setProperty(SkipMd5CheckStrategy.DISABLE_GET_OBJECT_MD5_VALIDATION_PROPERTY, "true");
         GetObjectRequest getObjectRequest = new GetObjectRequest(bucket, key);
         ResponseHeaderOverrides responseHeaders = new ResponseHeaderOverrides();
@@ -446,7 +572,7 @@ public class AbstractCOSClientTest {
         } catch (SecurityException se) {
             if (cosclient instanceof COSEncryptionClient && cryptoConfiguration != null
                     && cryptoConfiguration
-                            .getCryptoMode() == CryptoMode.StrictAuthenticatedEncryption
+                    .getCryptoMode() == CryptoMode.StrictAuthenticatedEncryption
                     && range != null) {
                 return;
             }
@@ -570,7 +696,7 @@ public class AbstractCOSClientTest {
             // get object
             long[] range = null;
             if (truncateSize > 0) {
-                range = new long[] {0, truncateSize - 1};
+                range = new long[]{0, truncateSize - 1};
             }
             getObject(key, downLoadFile, range, truncateSize, originMd5);
             // check file
@@ -586,6 +712,28 @@ public class AbstractCOSClientTest {
                 assertTrue(downLoadFile.delete());
             }
         }
+    }
+    protected void testAppendGetDelObjectDiffSize(long size, boolean isStream) throws IOException {
+        String key = "ut/" + size;
+        long nextAppendPosition = 0;
+        for(int i = 0; i < 3; i++) {
+            File localFile = buildTestFile(size);
+            AppendObjectRequest appendObjectRequest = null;
+            if(!isStream) {
+                appendObjectRequest = new AppendObjectRequest(bucket, key, localFile);
+            } else {
+                ObjectMetadata objectMetadata = new ObjectMetadata();
+                objectMetadata.setContentLength(size); 
+                appendObjectRequest = new AppendObjectRequest(bucket, key, new FileInputStream(localFile), objectMetadata);
+            }
+            appendObjectRequest.setPosition(nextAppendPosition);
+            AppendObjectResult appendObjectResult = cosclient.appendObject(appendObjectRequest);
+            nextAppendPosition = appendObjectResult.getNextAppendPosition();
+            localFile.delete();
+        }
+        ObjectMetadata objectMetadata = cosclient.getObjectMetadata(bucket, key);
+        assertEquals(objectMetadata.getContentLength(), size * 3);
+        cosclient.deleteObject(bucket, key);
     }
 
     // 在本地生成不同大小的文件, 并上传， 下载，删除
@@ -605,8 +753,8 @@ public class AbstractCOSClientTest {
     }
 
     protected void testPutGetObjectAndClear(String key, File localFile, File downLoadFile,
-            SSECustomerKey sseCKey, SSECOSKeyManagementParams params)
-                    throws CosServiceException, IOException {
+                                            SSECustomerKey sseCKey, SSECOSKeyManagementParams params)
+            throws CosServiceException, IOException {
         if (!judgeUserInfoValid()) {
             return;
         }
@@ -618,7 +766,7 @@ public class AbstractCOSClientTest {
             headSimpleObject(key, localFile.length(), Md5Utils.md5Hex(localFile));
             long range[] = null;
             if (localFile.length() > 0) {
-                range = new long[] {0, localFile.length() - 1};
+                range = new long[]{0, localFile.length() - 1};
             }
             // get object
             getObject(key, downLoadFile, range, localFile.length(), Md5Utils.md5Hex(localFile));
@@ -643,7 +791,7 @@ public class AbstractCOSClientTest {
     }
 
     protected void testUploadPart(String key, String uploadId, int partNumber, byte[] data,
-            String dataMd5, boolean isLastPart) {
+                                  String dataMd5, boolean isLastPart) {
         UploadPartRequest uploadPartRequest = new UploadPartRequest();
         uploadPartRequest.setBucketName(bucket);
         uploadPartRequest.setKey(key);
@@ -659,11 +807,12 @@ public class AbstractCOSClientTest {
         } else {
             assertEquals(true, dataMd5.equals(uploadPartResult.getETag()));
         }
+        assertNotNull(uploadPartResult.getCrc64Ecma());
         assertEquals(partNumber, uploadPartResult.getPartNumber());
     }
 
     protected List<PartETag> testListMultipart(String key, String uploadId, int expectedPartNum,
-            List<String> originDataMd5Array) {
+                                               List<String> originDataMd5Array) {
         List<PartETag> partETags = new LinkedList<>();
         PartListing partListing = null;
         ListPartsRequest listPartsRequest = new ListPartsRequest(bucket, key, uploadId);
@@ -689,7 +838,7 @@ public class AbstractCOSClientTest {
     }
 
     protected void testCompleteMultiPart(String key, String uploadId, List<PartETag> partETags,
-            int expectedPartNum) {
+                                         int expectedPartNum) {
         CompleteMultipartUploadRequest completeMultipartUploadRequest =
                 new CompleteMultipartUploadRequest(bucket, key, uploadId, partETags);
         CompleteMultipartUploadResult completeResult =
@@ -698,6 +847,7 @@ public class AbstractCOSClientTest {
         assertNotNull(completeResult.getDateStr());
         String etag = completeResult.getETag();
         assertTrue(etag.contains("-"));
+        assertNotNull(completeResult.getCrc64Ecma());
         try {
             int etagPartNum = Integer.valueOf(etag.substring(etag.indexOf("-") + 1));
             assertEquals(expectedPartNum, etagPartNum);
@@ -707,7 +857,7 @@ public class AbstractCOSClientTest {
     }
 
     protected void testGetEachPart(String key, long partSize, long fileSize,
-            List<PartETag> partETags, List<String> originDataMd5Array) throws IOException {
+                                   List<PartETag> partETags, List<String> originDataMd5Array) throws IOException {
         File downloadFile = buildTestFile(0L);
         long partBegin = 0;
         long partEnd = 0;
@@ -720,7 +870,7 @@ public class AbstractCOSClientTest {
                 if (partEnd >= fileSize) {
                     partEnd = fileSize - 1;
                 }
-                long range[] = new long[] {partBegin, partEnd};
+                long range[] = new long[]{partBegin, partEnd};
                 getObject(key, downloadFile, range, partEnd - partBegin + 1,
                         originDataMd5Array.get(partNumber - 1));
                 assertEquals(partEnd - partBegin + 1, downloadFile.length());
@@ -769,5 +919,42 @@ public class AbstractCOSClientTest {
         } finally {
             clearObject(key);
         }
+    }
+
+    protected static TemporyToken fetchTempToken(long durationSeconds) {
+        TreeMap<String, Object> config = new TreeMap<String, Object>();
+        try {
+            // 替换为您的 SecretId
+            config.put("SecretId", secretId);
+            // 替换为您的 SecretKey
+            config.put("SecretKey", secretKey);
+
+            // 临时密钥有效时长，单位是秒，默认1800秒，目前主账号最长2小时（即7200秒），子账号最长36小时（即129600秒）
+            config.put("durationSeconds", (int)durationSeconds);
+
+            // 换成您的 bucket
+            config.put("bucket", bucket);
+            // 换成 bucket 所在地区
+            config.put("region", region);
+
+            // 这里改成允许的路径前缀，可以根据自己网站的用户登录态判断允许上传的具体路径，例子：a.jpg 或者 a/* 或者 * 。
+            // 如果填写了“*”，将允许用户访问所有资源；除非业务需要，否则请按照最小权限原则授予用户相应的访问权限范围。
+            config.put("allowPrefix", "*");
+
+            // 密钥的权限列表。简单上传、表单上传和分片上传需要以下的权限，其他权限列表请看 https://cloud.tencent.com/document/product/436/31923
+            String[] allowActions = new String[] {
+                    "name/cos:*",
+            };
+            config.put("allowActions", allowActions);
+
+            JSONObject credentialsJson = CosStsClient.getCredential(config).getJSONObject("credentials");
+            String tmpSecretId = credentialsJson.getString("tmpSecretId");
+            String tmpSecretKey = credentialsJson.getString("tmpSecretKey");
+            String sessionToken = credentialsJson.getString("sessionToken");
+            return new TemporyToken(tmpSecretId, tmpSecretKey, sessionToken);
+        } catch (Exception e) {
+            fail("fetchTempToken occur a exception: " + e.toString());
+        }
+        return null;
     }
 }

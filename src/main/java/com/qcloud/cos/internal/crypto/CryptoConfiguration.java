@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.internal.crypto;
 
 import java.io.Serializable;
@@ -24,6 +42,13 @@ public class CryptoConfiguration implements Cloneable,Serializable {
      * missing instruction file would always cause security exception.
      */
     private boolean ignoreMissingInstructionFile = true;
+
+    /**
+     * Used to specify the KMS region for the KMS client when such client
+     * is internally instantiated instead of externally passed in by users; or
+     * null if no explicit KMS region is specified.
+     */
+    private transient String kmsRegion;
 
     /**
      * Creates a new CryptoConfiguration object with default storage mode and
@@ -280,5 +305,40 @@ public class CryptoConfiguration implements Cloneable,Serializable {
         that.cryptoProvider = this.cryptoProvider;
         that.ignoreMissingInstructionFile = this.ignoreMissingInstructionFile;
         return that;
+    }
+
+    /**
+     * Returns the the KMS region explicitly specified for the KMS client
+     * when such client is internally instantiated; or null if no explicit KMS
+     * region is specified. This KMS region parameter is ignored when the AWS
+     * KMS client of the encryption client is explicitly passed in by the
+     * users, instead of being implicitly created.
+     */
+    public String getKmsRegion() {
+        return kmsRegion;
+    }
+
+    /**
+     * Sets the KMS region for the KMS client when such client is internally
+     * instantiated instead of externally passed in by users; or null if no
+     * explicit KMS region is explicitly configured.This KMS region parameter is
+     * ignored when the KMS client of the encryption client is explicitly
+     * passed in by the users, instead of being implicitly created.
+     */
+    public void setKmsRegion(String kmsRegion) {
+        this.kmsRegion = kmsRegion;
+    }
+
+    /**
+     * Fluent API for setting the KMS region for the KMS client when such
+     * client is internally instantiated instead of externally passed in by
+     * users; or null if no explicit KMS region is explicitly configured.This
+     * KMS region parameter is ignored when the KMS client of the encryption
+     * client is explicitly passed in by the users, instead of being
+     * implicitly created.
+     */
+    public CryptoConfiguration withKmsRegion(String kmsRegion) {
+        this.kmsRegion = kmsRegion;
+        return this;
     }
 }

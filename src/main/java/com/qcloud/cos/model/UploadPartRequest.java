@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.model;
 
 import java.io.File;
@@ -44,6 +62,11 @@ public class UploadPartRequest extends CosServiceRequest implements SSECustomerK
      * integrity when the data reaches Qcloud COS.
      */
     private String md5Digest;
+
+    /**
+     * traffic limit speed in second, the unit is bit/s
+     */
+    private int trafficLimit = 0;
 
     /**
      * The stream containing the data to upload for the new part. Exactly one
@@ -306,6 +329,21 @@ public class UploadPartRequest extends CosServiceRequest implements SSECustomerK
     }
 
     /**
+     * Sets the speed of this part upload, in bit/s, and returns this updated
+     * UploadPartRequest object so that additional method calls can be chained
+     * together.
+     *
+     * @param trafficLimit
+     *            the speed of upload, in bit/s.
+     *
+     * @return This updated UploadPartRequest object.
+     */
+    public UploadPartRequest withTrafficLimit(int trafficLimit) {
+        this.trafficLimit = trafficLimit;
+        return this;
+    }
+
+    /**
      * Returns the optional, but recommended, MD5 hash of the content of this
      * part. If specified, this value will be sent to Qcloud COS to verify the
      * data integrity when the data reaches Qcloud COS.
@@ -536,5 +574,13 @@ public class UploadPartRequest extends CosServiceRequest implements SSECustomerK
     public UploadPartRequest withObjectMetadata(ObjectMetadata objectMetadata) {
         setObjectMetadata(objectMetadata);
         return this;
+    }
+
+    public int getTrafficLimit() {
+        return trafficLimit;
+    }
+
+    public void setTrafficLimit(int trafficLimit) {
+        this.trafficLimit = trafficLimit;
     }
 }

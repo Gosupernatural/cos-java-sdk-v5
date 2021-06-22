@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos;
 
 import java.io.File;
@@ -11,6 +29,7 @@ import com.qcloud.cos.internal.crypto.CryptoConfiguration;
 import com.qcloud.cos.internal.crypto.CryptoModuleDispatcher;
 import com.qcloud.cos.internal.crypto.EncryptionMaterialsProvider;
 import com.qcloud.cos.internal.crypto.QCLOUDKMS;
+import com.qcloud.cos.internal.crypto.TencentCloudKMSClient;
 import com.qcloud.cos.model.AbortMultipartUploadRequest;
 import com.qcloud.cos.model.COSObject;
 import com.qcloud.cos.model.COSObjectId;
@@ -40,6 +59,7 @@ public class COSEncryptionClient extends COSClient implements COSEncryption {
      * KMS client would be responsible to shut down the KMS client.
      */
     private final boolean isKMSClientInternal;
+    private final QCLOUDKMS kms;
 
     public COSEncryptionClient(COSCredentialsProvider credentialsProvider,
             EncryptionMaterialsProvider kekMaterialsProvider, ClientConfig clientConfig,
@@ -55,8 +75,24 @@ public class COSEncryptionClient extends COSClient implements COSEncryption {
                 "EncryptionMaterialsProvider parameter must not be null.");
         assertParameterNotNull(cryptoConfig, "CryptoConfiguration parameter must not be null.");
         this.isKMSClientInternal = kms == null;
-        this.crypto = new CryptoModuleDispatcher(kms, new COSDirectImpl(), credentialsProvider,
+        this.kms = isKMSClientInternal ?
+                newTencentCloudKMSClient(credentialsProvider, clientConfig, cryptoConfig) : kms;
+        this.crypto = new CryptoModuleDispatcher(this.kms, new COSDirectImpl(), credentialsProvider,
                 kekMaterialsProvider, cryptoConfig);
+    }
+
+    private TencentCloudKMSClient newTencentCloudKMSClient(
+            COSCredentialsProvider credentialsProvider,
+            ClientConfig clientConfig,
+            CryptoConfiguration cryptoConfig) {
+        String region = cryptoConfig.getKmsRegion();
+        if (region == null) {
+            region = clientConfig.getRegion().getRegionName();
+        }
+
+        final TencentCloudKMSClient kmsClient = new TencentCloudKMSClient(credentialsProvider, region);
+
+        return kmsClient;
     }
 
     private void assertParameterNotNull(Object parameterValue, String errorMessage) {
@@ -159,8 +195,8 @@ public class COSEncryptionClient extends COSClient implements COSEncryption {
     @Override
     public void shutdown() {
         super.shutdown();
-        // if (isKMSClientInternal)
-        // kms.shutdown();
+        if (isKMSClientInternal)
+            kms.shutdown();
     }
 
     // /////////////////// Access to the methods in the super class //////////

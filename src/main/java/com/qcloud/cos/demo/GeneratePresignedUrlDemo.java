@@ -1,7 +1,6 @@
 package com.qcloud.cos.demo;
 
 import java.io.IOException;
-
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.ProtocolException;
@@ -14,6 +13,7 @@ import com.qcloud.cos.auth.AnonymousCOSCredentials;
 import com.qcloud.cos.auth.BasicCOSCredentials;
 import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.http.HttpMethodName;
+import com.qcloud.cos.http.HttpProtocol;
 import com.qcloud.cos.model.GeneratePresignedUrlRequest;
 import com.qcloud.cos.model.ResponseHeaderOverrides;
 import com.qcloud.cos.region.Region;
@@ -24,13 +24,14 @@ import com.qcloud.cos.utils.DateUtils;
  * 用于可将生成的连接分发给移动端或者他人, 即可实现在签名有效期内上传或者下载文件.
  */
 public class GeneratePresignedUrlDemo {
-
     // 获取下载的预签名连接
     public static void GenerateSimplePresignedDownloadUrl() {
         // 1 初始化用户身份信息(secretId, secretKey)
         COSCredentials cred = new BasicCOSCredentials("AKIDXXXXXXXX", "1A2Z3YYYYYYYYYY");
         // 2 设置bucket的区域, COS地域的简称请参照 https://www.qcloud.com/document/product/436/6224
         ClientConfig clientConfig = new ClientConfig(new Region("ap-beijing-1"));
+        // 如果要获取 https 的 url 则在此设置，否则默认获取的是 http url
+        clientConfig.setHttpProtocol(HttpProtocol.https);
         // 3 生成cos客户端
         COSClient cosclient = new COSClient(cred, clientConfig);
         // bucket名需包含appid
@@ -39,7 +40,7 @@ public class GeneratePresignedUrlDemo {
         String key = "aaa.txt";
         GeneratePresignedUrlRequest req =
                 new GeneratePresignedUrlRequest(bucketName, key, HttpMethodName.GET);
-        // 设置签名过期时间(可选), 若未进行设置则默认使用ClientConfig中的签名过期时间(5分钟)
+        // 设置签名过期时间(可选), 若未进行设置则默认使用ClientConfig中的签名过期时间(1小时)
         // 这里设置签名在半个小时后过期
         Date expirationDate = new Date(System.currentTimeMillis() + 30 * 60 * 1000);
         req.setExpiration(expirationDate);
@@ -78,7 +79,7 @@ public class GeneratePresignedUrlDemo {
         responseHeaders.setCacheControl(responseCacheControl);
         responseHeaders.setExpires(cacheExpireStr);
         req.setResponseHeaders(responseHeaders);
-        // 设置签名过期时间(可选), 若未进行设置则默认使用ClientConfig中的签名过期时间(5分钟)
+        // 设置签名过期时间(可选), 若未进行设置则默认使用ClientConfig中的签名过期时间(1小时)
         // 这里设置签名在半个小时后过期
         Date expirationDate = new Date(System.currentTimeMillis() + 30 * 60 * 1000);
         req.setExpiration(expirationDate);

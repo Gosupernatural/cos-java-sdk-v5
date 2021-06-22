@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.utils;
 
 import java.io.InputStream;
@@ -63,7 +81,18 @@ public class VersionInfoUtils {
      *         The User Agent encapsulates SDK, Java, OS and region information.
      */
     public static String getUserAgent() {
-        return "cos-java-sdk";
+        if (userAgent == null) {
+            synchronized(VersionInfoUtils.class) {
+                if (userAgent == null) {
+                    userAgent =  String.format("cos-java-sdk-v%s/%s/jdk-%s/%s",
+                                               getVersion(),
+                                               System.getProperty("os.name"),
+                                               System.getProperty("java.version"),
+                                               System.getProperty("java.vm.name"));
+                } 
+            }
+        }
+        return userAgent;
     }
 
     /**
@@ -79,7 +108,6 @@ public class VersionInfoUtils {
 
             versionInfoProperties.load(inputStream);
             version = versionInfoProperties.getProperty("version");
-            platform = versionInfoProperties.getProperty("platform");
         } catch (Exception e) {
             log.info("Unable to load version information for the running SDK: " + e.getMessage());
             version = "unknown-version";

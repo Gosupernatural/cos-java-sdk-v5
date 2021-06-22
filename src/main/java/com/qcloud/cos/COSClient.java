@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos;
 
 import static com.qcloud.cos.internal.LengthCheckInputStream.EXCLUDE_SKIPPED_BYTES;
@@ -7,6 +25,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.MessageDigest;
@@ -19,17 +38,15 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.regex.Pattern;
-
-import org.apache.commons.codec.DecoderException;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.qcloud.cos.auth.COSCredentials;
 import com.qcloud.cos.auth.COSCredentialsProvider;
+import com.qcloud.cos.auth.COSSessionCredentials;
 import com.qcloud.cos.auth.COSSigner;
 import com.qcloud.cos.auth.COSStaticCredentialsProvider;
+import com.qcloud.cos.endpoint.CIRegionEndpointBuilder;
+import com.qcloud.cos.endpoint.EndpointBuilder;
+import com.qcloud.cos.endpoint.RegionEndpointBuilder;
 import com.qcloud.cos.exception.CosClientException;
 import com.qcloud.cos.exception.CosServiceException;
 import com.qcloud.cos.exception.CosServiceException.ErrorType;
@@ -39,8 +56,12 @@ import com.qcloud.cos.http.CosHttpClient;
 import com.qcloud.cos.http.CosHttpRequest;
 import com.qcloud.cos.http.DefaultCosHttpClient;
 import com.qcloud.cos.http.HttpMethodName;
+import com.qcloud.cos.http.HttpProtocol;
 import com.qcloud.cos.http.HttpResponseHandler;
 import com.qcloud.cos.internal.BucketNameUtils;
+import com.qcloud.cos.internal.CIServiceRequest;
+import com.qcloud.cos.internal.CIWorkflowServiceRequest;
+import com.qcloud.cos.internal.COSDefaultAclHeaderHandler;
 import com.qcloud.cos.internal.COSObjectResponseHandler;
 import com.qcloud.cos.internal.COSStringResponseHandler;
 import com.qcloud.cos.internal.COSVersionHeaderHandler;
@@ -49,9 +70,10 @@ import com.qcloud.cos.internal.Constants;
 import com.qcloud.cos.internal.CosMetadataResponseHandler;
 import com.qcloud.cos.internal.CosServiceRequest;
 import com.qcloud.cos.internal.CosServiceResponse;
+import com.qcloud.cos.internal.DeleteObjectTaggingHeaderHandler;
 import com.qcloud.cos.internal.DeleteObjectsResponse;
 import com.qcloud.cos.internal.DigestValidationInputStream;
-import com.qcloud.cos.internal.UrlComponentUtils;
+import com.qcloud.cos.internal.GetObjectTaggingResponseHeaderHandler;
 import com.qcloud.cos.internal.InputSubstream;
 import com.qcloud.cos.internal.LengthCheckInputStream;
 import com.qcloud.cos.internal.MD5DigestCalculatingInputStream;
@@ -61,8 +83,10 @@ import com.qcloud.cos.internal.ReleasableInputStream;
 import com.qcloud.cos.internal.RequestXmlFactory;
 import com.qcloud.cos.internal.ResettableInputStream;
 import com.qcloud.cos.internal.ResponseHeaderHandlerChain;
+import com.qcloud.cos.internal.SdkFilterInputStream;
 import com.qcloud.cos.internal.ServerSideEncryptionHeaderHandler;
 import com.qcloud.cos.internal.ServiceClientHolderInputStream;
+import com.qcloud.cos.internal.SetObjectTaggingResponseHeaderHandler;
 import com.qcloud.cos.internal.SkipMd5CheckStrategy;
 import com.qcloud.cos.internal.Unmarshaller;
 import com.qcloud.cos.internal.Unmarshallers;
@@ -70,91 +94,62 @@ import com.qcloud.cos.internal.VIDResultHandler;
 import com.qcloud.cos.internal.VoidCosResponseHandler;
 import com.qcloud.cos.internal.XmlResponsesSaxParser.CompleteMultipartUploadHandler;
 import com.qcloud.cos.internal.XmlResponsesSaxParser.CopyObjectResultHandler;
-import com.qcloud.cos.model.AbortMultipartUploadRequest;
-import com.qcloud.cos.model.AccessControlList;
-import com.qcloud.cos.model.AclXmlFactory;
-import com.qcloud.cos.model.Bucket;
-import com.qcloud.cos.model.BucketConfigurationXmlFactory;
-import com.qcloud.cos.model.BucketCrossOriginConfiguration;
-import com.qcloud.cos.model.BucketLifecycleConfiguration;
-import com.qcloud.cos.model.BucketPolicy;
-import com.qcloud.cos.model.BucketReplicationConfiguration;
-import com.qcloud.cos.model.BucketVersioningConfiguration;
-import com.qcloud.cos.model.COSObject;
-import com.qcloud.cos.model.COSObjectInputStream;
-import com.qcloud.cos.model.CannedAccessControlList;
-import com.qcloud.cos.model.CompleteMultipartUploadRequest;
-import com.qcloud.cos.model.CompleteMultipartUploadResult;
-import com.qcloud.cos.model.CopyObjectRequest;
-import com.qcloud.cos.model.CopyObjectResult;
-import com.qcloud.cos.model.CopyPartRequest;
-import com.qcloud.cos.model.CopyPartResult;
-import com.qcloud.cos.model.CosDataSource;
-import com.qcloud.cos.model.CreateBucketRequest;
-import com.qcloud.cos.model.DeleteBucketCrossOriginConfigurationRequest;
-import com.qcloud.cos.model.DeleteBucketLifecycleConfigurationRequest;
-import com.qcloud.cos.model.DeleteBucketPolicyRequest;
-import com.qcloud.cos.model.DeleteBucketReplicationConfigurationRequest;
-import com.qcloud.cos.model.DeleteBucketRequest;
-import com.qcloud.cos.model.DeleteObjectRequest;
-import com.qcloud.cos.model.DeleteObjectsRequest;
-import com.qcloud.cos.model.DeleteObjectsResult;
-import com.qcloud.cos.model.DeleteVersionRequest;
-import com.qcloud.cos.model.GeneratePresignedUrlRequest;
-import com.qcloud.cos.model.GenericBucketRequest;
-import com.qcloud.cos.model.GetBucketAclRequest;
-import com.qcloud.cos.model.GetBucketCrossOriginConfigurationRequest;
-import com.qcloud.cos.model.GetBucketLifecycleConfigurationRequest;
-import com.qcloud.cos.model.GetBucketLocationRequest;
-import com.qcloud.cos.model.GetBucketPolicyRequest;
-import com.qcloud.cos.model.GetBucketReplicationConfigurationRequest;
-import com.qcloud.cos.model.GetBucketVersioningConfigurationRequest;
-import com.qcloud.cos.model.GetObjectAclRequest;
-import com.qcloud.cos.model.GetObjectMetadataRequest;
-import com.qcloud.cos.model.GetObjectRequest;
-import com.qcloud.cos.model.Grant;
-import com.qcloud.cos.model.Grantee;
-import com.qcloud.cos.model.HeadBucketRequest;
-import com.qcloud.cos.model.HeadBucketResult;
-import com.qcloud.cos.model.HeadBucketResultHandler;
-import com.qcloud.cos.model.InitiateMultipartUploadRequest;
-import com.qcloud.cos.model.InitiateMultipartUploadResult;
-import com.qcloud.cos.model.ListBucketsRequest;
-import com.qcloud.cos.model.ListMultipartUploadsRequest;
-import com.qcloud.cos.model.ListNextBatchOfObjectsRequest;
-import com.qcloud.cos.model.ListNextBatchOfVersionsRequest;
-import com.qcloud.cos.model.ListObjectsRequest;
-import com.qcloud.cos.model.ListPartsRequest;
-import com.qcloud.cos.model.ListVersionsRequest;
-import com.qcloud.cos.model.MultipartUploadListing;
-import com.qcloud.cos.model.ObjectListing;
-import com.qcloud.cos.model.ObjectMetadata;
-import com.qcloud.cos.model.PartListing;
-import com.qcloud.cos.model.Permission;
-import com.qcloud.cos.model.PutObjectRequest;
-import com.qcloud.cos.model.PutObjectResult;
-import com.qcloud.cos.model.ResponseHeaderOverrides;
-import com.qcloud.cos.model.RestoreObjectRequest;
-import com.qcloud.cos.model.SSECOSKeyManagementParams;
-import com.qcloud.cos.model.SSECustomerKey;
-import com.qcloud.cos.model.SetBucketAclRequest;
-import com.qcloud.cos.model.SetBucketCrossOriginConfigurationRequest;
-import com.qcloud.cos.model.SetBucketLifecycleConfigurationRequest;
-import com.qcloud.cos.model.SetBucketPolicyRequest;
-import com.qcloud.cos.model.SetBucketReplicationConfigurationRequest;
-import com.qcloud.cos.model.SetBucketVersioningConfigurationRequest;
-import com.qcloud.cos.model.SetObjectAclRequest;
-import com.qcloud.cos.model.UploadPartRequest;
-import com.qcloud.cos.model.UploadPartResult;
-import com.qcloud.cos.model.VersionListing;
+import com.qcloud.cos.model.*;
+import com.qcloud.cos.model.ciModel.auditing.AudioAuditingRequest;
+import com.qcloud.cos.model.ciModel.auditing.AudioAuditingResponse;
+import com.qcloud.cos.model.ciModel.auditing.ImageAuditingRequest;
+import com.qcloud.cos.model.ciModel.auditing.ImageAuditingResponse;
+import com.qcloud.cos.model.ciModel.auditing.VideoAuditingRequest;
+import com.qcloud.cos.model.ciModel.auditing.VideoAuditingResponse;
+import com.qcloud.cos.model.ciModel.bucket.DocBucketRequest;
+import com.qcloud.cos.model.ciModel.bucket.DocBucketResponse;
+import com.qcloud.cos.model.ciModel.bucket.MediaBucketRequest;
+import com.qcloud.cos.model.ciModel.bucket.MediaBucketResponse;
+import com.qcloud.cos.model.ciModel.common.ImageProcessRequest;
+import com.qcloud.cos.model.ciModel.common.MediaOutputObject;
+import com.qcloud.cos.model.ciModel.job.DocJobListRequest;
+import com.qcloud.cos.model.ciModel.job.DocJobListResponse;
+import com.qcloud.cos.model.ciModel.job.DocJobRequest;
+import com.qcloud.cos.model.ciModel.job.DocJobResponse;
+import com.qcloud.cos.model.ciModel.job.MediaJobObject;
+import com.qcloud.cos.model.ciModel.job.MediaJobResponse;
+import com.qcloud.cos.model.ciModel.job.MediaJobsRequest;
+import com.qcloud.cos.model.ciModel.job.MediaListJobResponse;
+import com.qcloud.cos.model.ciModel.mediaInfo.MediaInfoRequest;
+import com.qcloud.cos.model.ciModel.mediaInfo.MediaInfoResponse;
+import com.qcloud.cos.model.ciModel.persistence.CIUploadResult;
+import com.qcloud.cos.model.ciModel.queue.DocListQueueResponse;
+import com.qcloud.cos.model.ciModel.queue.DocQueueRequest;
+import com.qcloud.cos.model.ciModel.queue.MediaListQueueResponse;
+import com.qcloud.cos.model.ciModel.queue.MediaQueueRequest;
+import com.qcloud.cos.model.ciModel.queue.MediaQueueResponse;
+import com.qcloud.cos.model.ciModel.snapshot.SnapshotRequest;
+import com.qcloud.cos.model.ciModel.snapshot.SnapshotResponse;
+import com.qcloud.cos.model.ciModel.template.MediaListTemplateResponse;
+import com.qcloud.cos.model.ciModel.template.MediaTemplateRequest;
+import com.qcloud.cos.model.ciModel.template.MediaTemplateResponse;
+import com.qcloud.cos.model.ciModel.workflow.MediaWorkflowExecutionResponse;
+import com.qcloud.cos.model.ciModel.workflow.MediaWorkflowExecutionsResponse;
+import com.qcloud.cos.model.ciModel.workflow.MediaWorkflowListRequest;
+import com.qcloud.cos.model.ciModel.workflow.MediaWorkflowListResponse;
+import com.qcloud.cos.model.ciModel.workflow.MediaWorkflowRequest;
+import com.qcloud.cos.model.inventory.InventoryConfiguration;
+import com.qcloud.cos.model.transform.ObjectTaggingXmlFactory;
 import com.qcloud.cos.region.Region;
 import com.qcloud.cos.utils.Base64;
 import com.qcloud.cos.utils.BinaryUtils;
 import com.qcloud.cos.utils.DateUtils;
+import com.qcloud.cos.utils.Jackson;
 import com.qcloud.cos.utils.Md5Utils;
 import com.qcloud.cos.utils.ServiceUtils;
 import com.qcloud.cos.utils.StringUtils;
 import com.qcloud.cos.utils.UrlEncoderUtils;
+
+import org.apache.commons.codec.DecoderException;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.entity.ContentType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class COSClient implements COS {
 
@@ -163,7 +158,7 @@ public class COSClient implements COS {
     private final SkipMd5CheckStrategy skipMd5CheckStrategy = SkipMd5CheckStrategy.INSTANCE;
     private final VoidCosResponseHandler voidCosResponseHandler = new VoidCosResponseHandler();
 
-    private COSCredentialsProvider credProvider;
+    private volatile COSCredentialsProvider credProvider;
 
     protected ClientConfig clientConfig;
 
@@ -183,6 +178,17 @@ public class COSClient implements COS {
     public void shutdown() {
         this.cosHttpClient.shutdown();
     }
+
+    public void setCOSCredentials(COSCredentials cred) {
+        rejectNull(cred, "cred must not be null");
+        this.credProvider = new COSStaticCredentialsProvider(cred);
+    }
+
+    public void setCOSCredentialsProvider(COSCredentialsProvider credProvider) {
+        rejectNull(credProvider, "credProvider must not be null");
+        this.credProvider = credProvider;
+    }
+
 
     @Override
     public ClientConfig getClientConfig() {
@@ -216,6 +222,23 @@ public class COSClient implements COS {
     private void rejectNull(Object parameterValue, String errorMessage) {
         if (parameterValue == null)
             throw new IllegalArgumentException(errorMessage);
+    }
+
+    private void rejectEmpty(String parameterValue, String errorMessage) {
+        if (parameterValue.isEmpty())
+            throw new IllegalArgumentException(errorMessage);
+    }
+
+    private void rejectEmpty(Map parameterValue, String errorMessage) {
+        if (parameterValue.isEmpty())
+            throw new IllegalArgumentException(errorMessage);
+    }
+
+    private void rejectStartWith(String value, String startStr, String errorMessage) {
+        if (value != null && !value.isEmpty() && startStr != null) {
+            if (!value.startsWith(startStr))
+                throw new IllegalArgumentException(errorMessage);
+        }
     }
 
     protected <X extends CosServiceRequest> CosHttpRequest<X> createRequest(String bucketName,
@@ -304,29 +327,26 @@ public class COSClient implements COS {
             CosHttpRequest<? extends CosServiceRequest> request,
             CopyObjectRequest copyObjectRequest) {
         Region sourceRegion = copyObjectRequest.getSourceBucketRegion();
+        EndpointBuilder srcEndpointBuilder = null;
         // 如果用户没有设置源region, 则默认和目的region一致
         if (sourceRegion == null) {
-            sourceRegion = this.clientConfig.getRegion();
+            srcEndpointBuilder = this.clientConfig.getEndpointBuilder();
+        } else {
+            srcEndpointBuilder = new RegionEndpointBuilder(sourceRegion);
         }
-        String sourceKey = formatKey(copyObjectRequest.getSourceKey());
+        if (copyObjectRequest.getSourceEndpointBuilder() != null) {
+            srcEndpointBuilder = copyObjectRequest.getSourceEndpointBuilder();
+        }
 
+        String sourceKey = formatKey(copyObjectRequest.getSourceKey());
         String sourceBucket =
                 formatBucket(copyObjectRequest.getSourceBucketName(),
                         (copyObjectRequest.getSourceAppid() != null)
                                 ? copyObjectRequest.getSourceAppid()
                                 : fetchCredential().getCOSAppId());
-        String srcEndpointSuffix = copyObjectRequest.getSourceEndpointSuffix();
-        if (srcEndpointSuffix == null) {
-            srcEndpointSuffix =
-                    String.format(".%s.myqcloud.com", formatRegion(sourceRegion.getRegionName()));
-        } else {
-            UrlComponentUtils.validateSrcEndPointSuffix(srcEndpointSuffix);
-        }
-        if (!srcEndpointSuffix.startsWith(".")) {
-            srcEndpointSuffix = "." + srcEndpointSuffix;
-        }
-        String copySourceHeader = String.format("%s%s%s", sourceBucket, srcEndpointSuffix.trim(),
-                UrlEncoderUtils.encodeEscapeDelimiter(sourceKey));
+        String copySourceHeader =
+                String.format("%s%s", srcEndpointBuilder.buildGeneralApiEndpoint(sourceBucket),
+                        UrlEncoderUtils.encodeEscapeDelimiter(sourceKey));
         if (copyObjectRequest.getSourceVersionId() != null) {
             copySourceHeader += "?versionId=" + copyObjectRequest.getSourceVersionId();
         }
@@ -358,22 +378,35 @@ public class COSClient implements COS {
         }
 
         ObjectMetadata newObjectMetadata = copyObjectRequest.getNewObjectMetadata();
-        if (newObjectMetadata != null) {
+
+        if(copyObjectRequest.getMetadataDirective() != null) {
+            request.addHeader(Headers.METADATA_DIRECTIVE, copyObjectRequest.getMetadataDirective());
+        } else if (newObjectMetadata != null) {
             request.addHeader(Headers.METADATA_DIRECTIVE, "REPLACE");
+        }
+
+        if(newObjectMetadata != null) {
             populateRequestMetadata(request, newObjectMetadata);
         }
 
         // Populate the SSE-C parameters for the source and destination object
         populateSSE_C(request, copyObjectRequest.getDestinationSSECustomerKey());
         populateSourceSSE_C(request, copyObjectRequest.getSourceSSECustomerKey());
+        populateSSE_KMS(request, copyObjectRequest.getSSECOSKeyManagementParams());
     }
 
     private void populateRequestWithCopyPartParameters(
             CosHttpRequest<? extends CosServiceRequest> request, CopyPartRequest copyPartRequest) {
         Region sourceRegion = copyPartRequest.getSourceBucketRegion();
+        EndpointBuilder srcEndpointBuilder = null;
         // 如果用户没有设置源region, 则默认和目的region一致
         if (sourceRegion == null) {
-            sourceRegion = this.clientConfig.getRegion();
+            srcEndpointBuilder = this.clientConfig.getEndpointBuilder();
+        } else {
+            srcEndpointBuilder = new RegionEndpointBuilder(sourceRegion);
+        }
+        if (copyPartRequest.getSourceEndpointBuilder() != null) {
+            srcEndpointBuilder = copyPartRequest.getSourceEndpointBuilder();
         }
         String sourceKey = formatKey(copyPartRequest.getSourceKey());
 
@@ -382,18 +415,9 @@ public class COSClient implements COS {
                         (copyPartRequest.getSourceAppid() != null)
                                 ? copyPartRequest.getSourceAppid()
                                 : fetchCredential().getCOSAppId());
-        String srcEndpointSuffix = copyPartRequest.getSourceEndpointSuffix();
-        if (srcEndpointSuffix == null) {
-            srcEndpointSuffix =
-                    String.format(".%s.myqcloud.com", formatRegion(sourceRegion.getRegionName()));
-        } else {
-            UrlComponentUtils.validateSrcEndPointSuffix(srcEndpointSuffix);
-        }
-        if (!srcEndpointSuffix.startsWith(".")) {
-            srcEndpointSuffix = "." + srcEndpointSuffix;
-        }
-        String copySourceHeader = String.format("%s%s%s", sourceBucket, srcEndpointSuffix.trim(),
-                UrlEncoderUtils.encodeEscapeDelimiter(sourceKey));
+        String copySourceHeader =
+                String.format("%s%s", srcEndpointBuilder.buildGeneralApiEndpoint(sourceBucket),
+                        UrlEncoderUtils.encodeEscapeDelimiter(sourceKey));
         if (copyPartRequest.getSourceVersionId() != null) {
             copySourceHeader += "?versionId=" + copyPartRequest.getSourceVersionId();
         }
@@ -431,21 +455,6 @@ public class COSClient implements COS {
         return key;
     }
 
-    private String formatRegion(String regionName) throws CosClientException {
-        UrlComponentUtils.validateRegionName(regionName);
-        if (regionName.startsWith("cos.")) {
-            return regionName;
-        } else {
-            if (regionName.equals("cn-east") || regionName.equals("cn-south")
-                    || regionName.equals("cn-north") || regionName.equals("cn-south-2")
-                    || regionName.equals("cn-southwest") || regionName.equals("sg")) {
-                return regionName;
-            } else {
-                return "cos." + regionName;
-            }
-        }
-    }
-
     // 格式化一些路径, 去掉开始时的分隔符/, 比如list prefix.
     // 因为COS V4的prefix是以/开始的,这里SDK需要坐下兼容
     private String leftStripPathDelimiter(String path) {
@@ -462,8 +471,7 @@ public class COSClient implements COS {
     private String formatBucket(String bucketName, String appid) throws CosClientException {
         BucketNameUtils.validateBucketName(bucketName);
         if (appid == null) {
-            String parrtern = ".*-(125|100|20)[0-9]{3,}$";
-            if (Pattern.matches(parrtern, bucketName)) {
+            if (!bucketName.trim().isEmpty()) {
                 return bucketName;
             } else {
                 throw new CosClientException(
@@ -480,35 +488,48 @@ public class COSClient implements COS {
     }
 
     private <X extends CosServiceRequest> void buildUrlAndHost(CosHttpRequest<X> request,
-            String bucket, String key, boolean isServiceRequest) throws CosClientException {
+                                                               String bucket, String key, boolean isServiceRequest) throws CosClientException {
+        boolean isCIRequest = request.getOriginalRequest() instanceof CIServiceRequest;
         key = formatKey(key);
         request.setResourcePath(key);
-        String host = "";
-        String endPointSuffix = this.clientConfig.getEndPointSuffix();
-        if (endPointSuffix == null) {
-            if (isServiceRequest) {
-                endPointSuffix = "service.cos.myqcloud.com";
-            } else {
-                endPointSuffix = String.format(".%s.myqcloud.com",
-                        formatRegion(clientConfig.getRegion().getRegionName()));
-            }
-        } else {
-            UrlComponentUtils.validateEndPointSuffix(endPointSuffix);
-        }
-
+        String endpoint = "";
+        String endpointAddr = "";
         if (isServiceRequest) {
-            host = endPointSuffix;
+            endpoint = clientConfig.getEndpointBuilder().buildGetServiceApiEndpoint();
+            endpointAddr =
+                    clientConfig.getEndpointResolver().resolveGetServiceApiEndpoint(endpoint);
         } else {
             bucket = formatBucket(bucket, fetchCredential().getCOSAppId());
-            if (!endPointSuffix.startsWith(".")) {
-                endPointSuffix = "." + endPointSuffix;
+            if (isCIRequest) {
+                endpoint = new CIRegionEndpointBuilder(clientConfig.getRegion()).buildGeneralApiEndpoint(bucket);
+            } else {
+                endpoint = clientConfig.getEndpointBuilder().buildGeneralApiEndpoint(bucket);
             }
-            host = bucket + endPointSuffix;
+            endpointAddr = clientConfig.getEndpointResolver().resolveGeneralApiEndpoint(endpoint);
         }
 
-        request.addHeader(Headers.HOST, host);
-        request.setProtocol(clientConfig.getHttpProtocol());
-        request.setEndpoint(host);
+        if (endpoint == null) {
+            throw new CosClientException("endpoint is null, please check your endpoint builder");
+        }
+        if (endpointAddr == null) {
+            throw new CosClientException(
+                    "endpointAddr is null, please check your endpoint resolver");
+        }
+
+        request.addHeader(Headers.HOST, endpoint);
+        if (isCIRequest) {
+            //万象请求只支持https
+            request.setProtocol(HttpProtocol.https);
+        } else {
+            request.setProtocol(clientConfig.getHttpProtocol());
+        }
+        String fixedEndpointAddr = request.getOriginalRequest().getFixedEndpointAddr();
+        if (fixedEndpointAddr != null) {
+            request.setEndpoint(fixedEndpointAddr);
+        } else {
+            request.setEndpoint(endpointAddr);
+        }
+
         request.setResourcePath(key);
     }
 
@@ -516,17 +537,24 @@ public class COSClient implements COS {
             Unmarshaller<X, InputStream> unmarshaller)
             throws CosClientException, CosServiceException {
         return invoke(request, new COSXmlResponseHandler<X>(unmarshaller));
-
     }
 
     private <X, Y extends CosServiceRequest> X invoke(CosHttpRequest<Y> request,
             HttpResponseHandler<CosServiceResponse<X>> responseHandler)
             throws CosClientException, CosServiceException {
 
-        COSSigner cosSigner = new COSSigner();
-        Date expiredTime =
-                new Date(System.currentTimeMillis() + clientConfig.getSignExpired() * 1000);
-        cosSigner.sign(request, fetchCredential(), expiredTime);
+        COSSigner cosSigner = clientConfig.getCosSigner();
+        COSCredentials cosCredentials;
+        CosServiceRequest cosServiceRequest = request.getOriginalRequest();
+        if(cosServiceRequest != null && cosServiceRequest.getCosCredentials() != null) {
+            cosCredentials = cosServiceRequest.getCosCredentials();
+        } else {
+            cosCredentials = fetchCredential();
+        }
+        Date expiredTime = new Date(System.currentTimeMillis() + clientConfig.getSignExpired() * 1000);
+        boolean isCIWorkflowRequest = cosServiceRequest instanceof  CIWorkflowServiceRequest;
+        cosSigner.setCIWorkflowRequest(isCIWorkflowRequest);
+        cosSigner.sign(request, cosCredentials, expiredTime);
         return this.cosHttpClient.exeute(request, responseHandler);
     }
 
@@ -540,9 +568,20 @@ public class COSClient implements COS {
         result.setSSEAlgorithm(metadata.getSSEAlgorithm());
         result.setSSECustomerAlgorithm(metadata.getSSECustomerAlgorithm());
         result.setSSECustomerKeyMd5(metadata.getSSECustomerKeyMd5());
+        result.setCrc64Ecma(metadata.getCrc64Ecma());
+        result.setMetadata(metadata);
+        result.setCiUploadResult(metadata.getCiUploadResult());
+        return result;
+    }
+
+    private static AppendObjectResult createAppendObjectResult(ObjectMetadata metadata) {
+        final AppendObjectResult result = new AppendObjectResult();
+        result.setNextAppendPosition(Long.valueOf(
+                (String)metadata.getRawMetadataValue(Headers.APPEND_OBJECT_NEXT_POSISTION)));
         result.setMetadata(metadata);
         return result;
     }
+
 
     /**
      * Adds the specified parameter to the specified request, if the parameter value is not null.
@@ -682,6 +721,12 @@ public class COSClient implements COS {
         }
     }
 
+    private static void populateTrafficLimit(CosHttpRequest<?> request, int trafficLimit) {
+        if(trafficLimit > 0) {
+            request.addHeader(Headers.COS_TRAFFIC_LIMIT, String.valueOf(trafficLimit));
+        }
+    }
+
     private static void populateSourceSSE_C(CosHttpRequest<?> request, SSECustomerKey sseKey) {
         if (sseKey == null)
             return;
@@ -705,27 +750,46 @@ public class COSClient implements COS {
 
     private static void populateSSE_KMS(CosHttpRequest<?> request,
             SSECOSKeyManagementParams sseParams) {
-
         if (sseParams != null) {
             addHeaderIfNotNull(request, Headers.SERVER_SIDE_ENCRYPTION, sseParams.getEncryption());
-            addHeaderIfNotNull(request, Headers.SERVER_SIDE_ENCRYPTION_CUSTOMER_KEY,
+            addHeaderIfNotNull(request, Headers.SERVER_SIDE_ENCRYPTION_COS_KMS_KEY_ID,
                     sseParams.getCOSKmsKeyId());
+            addHeaderIfNotNull(request, Headers.SERVER_SIDE_ENCRYPTION_CONTEXT,
+                    sseParams.getEncryptionContext());
         }
     }
 
     @Override
     public PutObjectResult putObject(PutObjectRequest putObjectRequest)
             throws CosClientException, CosServiceException {
-        rejectNull(putObjectRequest,
+        ObjectMetadata returnedMetadata = uploadObjectInternal(UploadMode.PUT_OBJECT, putObjectRequest);
+        PutObjectResult result = createPutObjectResult(returnedMetadata);
+        result.setContentMd5(returnedMetadata.getETag());
+        return result;
+    }
+
+    @Override
+    public AppendObjectResult appendObject(AppendObjectRequest appendObjectRequest)
+            throws CosServiceException, CosClientException {
+        rejectNull(appendObjectRequest, "The append object request must be specified");
+        rejectNull(appendObjectRequest.getPosition(), "The position parameter must be specified");
+        ObjectMetadata returnedMetadata = uploadObjectInternal(UploadMode.APPEND_OBJECT, appendObjectRequest);
+        return createAppendObjectResult(returnedMetadata);
+    }
+
+    protected <UploadObjectRequest extends PutObjectRequest>
+        ObjectMetadata uploadObjectInternal(UploadMode uploadMode, UploadObjectRequest uploadObjectRequest)
+            throws CosClientException, CosServiceException {
+        rejectNull(uploadObjectRequest,
                 "The PutObjectRequest parameter must be specified when uploading an object");
         rejectNull(clientConfig.getRegion(),
                 "region is null, region in clientConfig must be specified when uploading an object");
 
-        final File file = putObjectRequest.getFile();
-        final InputStream isOrig = putObjectRequest.getInputStream();
-        final String bucketName = putObjectRequest.getBucketName();
-        final String key = putObjectRequest.getKey();
-        ObjectMetadata metadata = putObjectRequest.getMetadata();
+        final File file = uploadObjectRequest.getFile();
+        final InputStream isOrig = uploadObjectRequest.getInputStream();
+        final String bucketName = uploadObjectRequest.getBucketName();
+        final String key = uploadObjectRequest.getKey();
+        ObjectMetadata metadata = uploadObjectRequest.getMetadata();
         InputStream input = isOrig;
         if (metadata == null)
             metadata = new ObjectMetadata();
@@ -751,7 +815,7 @@ public class COSClient implements COS {
             }
             final boolean calculateMD5 = metadata.getContentMD5() == null;
 
-            if (calculateMD5 && !skipMd5CheckStrategy.skipServerSideValidation(putObjectRequest)) {
+            if (calculateMD5 && !skipMd5CheckStrategy.skipServerSideValidation(uploadObjectRequest)) {
                 try {
                     String contentMd5_b64 = Md5Utils.md5AsBase64(file);
                     metadata.setContentMD5(contentMd5_b64);
@@ -767,33 +831,43 @@ public class COSClient implements COS {
         final ObjectMetadata returnedMetadata;
         MD5DigestCalculatingInputStream md5DigestStream = null;
         try {
-            CosHttpRequest<PutObjectRequest> request =
-                    createRequest(bucketName, key, putObjectRequest, HttpMethodName.PUT);
-            if (putObjectRequest.getAccessControlList() != null) {
-                addAclHeaders(request, putObjectRequest.getAccessControlList());
-            } else if (putObjectRequest.getCannedAcl() != null) {
+            CosHttpRequest<UploadObjectRequest> request = null;
+            if(uploadMode.equals(UploadMode.PUT_OBJECT)) {
+                request = createRequest(bucketName, key, uploadObjectRequest, HttpMethodName.PUT);
+            } else if(uploadMode.equals(UploadMode.APPEND_OBJECT)){
+                request = createRequest(bucketName, key, uploadObjectRequest, HttpMethodName.POST);
+                AppendObjectRequest appendObjectRequest = (AppendObjectRequest)uploadObjectRequest;
+                String positionStr = String.valueOf(appendObjectRequest.getPosition());
+                request.addParameter("append", null);
+                request.addParameter("position", positionStr);
+            }
+            if (uploadObjectRequest.getAccessControlList() != null) {
+                addAclHeaders(request, uploadObjectRequest.getAccessControlList());
+            } else if (uploadObjectRequest.getCannedAcl() != null) {
                 request.addHeader(Headers.COS_CANNED_ACL,
-                        putObjectRequest.getCannedAcl().toString());
+                        uploadObjectRequest.getCannedAcl().toString());
             }
 
-            if (putObjectRequest.getStorageClass() != null) {
-                request.addHeader(Headers.STORAGE_CLASS, putObjectRequest.getStorageClass());
+            if (uploadObjectRequest.getStorageClass() != null) {
+                request.addHeader(Headers.STORAGE_CLASS, uploadObjectRequest.getStorageClass());
             }
 
-            if (putObjectRequest.getRedirectLocation() != null) {
+            if (uploadObjectRequest.getRedirectLocation() != null) {
                 request.addHeader(Headers.REDIRECT_LOCATION,
-                        putObjectRequest.getRedirectLocation());
+                        uploadObjectRequest.getRedirectLocation());
                 if (input == null) {
                     input = new ByteArrayInputStream(new byte[0]);
                 }
             }
 
             // Populate the SSE-C parameters to the request header
-            populateSSE_C(request, putObjectRequest.getSSECustomerKey());
+            populateSSE_C(request, uploadObjectRequest.getSSECustomerKey());
 
             // Populate the SSE KMS parameters to the request header
-            populateSSE_KMS(request, putObjectRequest.getSSECOSKeyManagementParams());
+            populateSSE_KMS(request, uploadObjectRequest.getSSECOSKeyManagementParams());
 
+            // Populate the traffic limit parameter to the request header
+            populateTrafficLimit(request, uploadObjectRequest.getTrafficLimit());
             // Use internal interface to differentiate 0 from unset.
             final Long contentLength = (Long) metadata.getRawMetadataValue(Headers.CONTENT_LENGTH);
             if (contentLength == null) {
@@ -833,7 +907,7 @@ public class COSClient implements COS {
             }
 
             if (metadata.getContentMD5() == null
-                    && !skipMd5CheckStrategy.skipClientSideValidationPerRequest(putObjectRequest)) {
+                    && !skipMd5CheckStrategy.skipClientSideValidationPerRequest(uploadObjectRequest)) {
                 /*
                  * If the user hasn't set the content MD5, then we don't want to buffer the whole
                  * stream in memory just to calculate it. Instead, we can calculate it on the fly
@@ -845,12 +919,18 @@ public class COSClient implements COS {
             populateRequestMetadata(request, metadata);
             request.setContent(input);
             try {
-                returnedMetadata = invoke(request, new CosMetadataResponseHandler());
+                if(uploadObjectRequest.getPicOperations() != null) {
+                    request.addHeader(Headers.PIC_OPERATIONS, Jackson.toJsonString(uploadObjectRequest.getPicOperations()));
+                    returnedMetadata = invoke(request, new ResponseHeaderHandlerChain<ObjectMetadata>(
+                            new Unmarshallers.ImagePersistenceUnmarshaller(), new CosMetadataResponseHandler()));
+                } else {
+                    returnedMetadata = invoke(request, new CosMetadataResponseHandler());
+                }
             } catch (Throwable t) {
                 throw Throwables.failure(t);
             }
         } finally {
-            CosDataSource.Utils.cleanupDataSource(putObjectRequest, file, isOrig, input, log);
+            CosDataSource.Utils.cleanupDataSource(uploadObjectRequest, file, isOrig, input, log);
         }
 
         String contentMd5 = metadata.getContentMD5();
@@ -859,8 +939,8 @@ public class COSClient implements COS {
         }
 
         final String etag = returnedMetadata.getETag();
-        if (contentMd5 != null
-                && !skipMd5CheckStrategy.skipClientSideValidationPerPutResponse(returnedMetadata)) {
+        if (contentMd5 != null && uploadMode.equals(UploadMode.PUT_OBJECT)
+                && !skipMd5CheckStrategy.skipClientSideValidationPerPutResponse(returnedMetadata) ) {
             byte[] clientSideHash = BinaryUtils.fromBase64(contentMd5);
             byte[] serverSideHash = null;
             try {
@@ -885,9 +965,7 @@ public class COSClient implements COS {
                         + ")");
             }
         }
-        PutObjectResult result = createPutObjectResult(returnedMetadata);
-        result.setContentMd5(contentMd5);
-        return result;
+        return returnedMetadata;
     }
 
     @Override
@@ -901,6 +979,27 @@ public class COSClient implements COS {
     public PutObjectResult putObject(String bucketName, String key, InputStream input,
             ObjectMetadata metadata) throws CosClientException, CosServiceException {
         return putObject(new PutObjectRequest(bucketName, key, input, metadata));
+    }
+
+    @Override
+    public PutObjectResult putObject(String bucketName, String key, String content)
+            throws CosClientException, CosServiceException {
+        rejectNull(bucketName,
+                "The bucket name parameter must be specified when uploading an object");
+        rejectNull(key, "The key parameter must be specified when uploading an object");
+        rejectNull(content,
+                "The content with utf-8 encoding must be specified when uploading an object");
+
+        byte[] contentByteArray = content.getBytes(StringUtils.UTF8);
+        String contentMd5 = Md5Utils.md5AsBase64(contentByteArray);
+
+        InputStream contentInput = new ByteArrayInputStream(contentByteArray);
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentType("text/plain");
+        metadata.setContentLength(contentByteArray.length);
+        metadata.setContentMD5(contentMd5);
+
+        return putObject(new PutObjectRequest(bucketName, key, contentInput, metadata));
     }
 
     @Override
@@ -946,6 +1045,8 @@ public class COSClient implements COS {
         // Populate the SSE-C parameters to the request header
         populateSSE_C(request, getObjectRequest.getSSECustomerKey());
 
+        // Populate the traffic limit parameter to the request header
+        populateTrafficLimit(request, getObjectRequest.getTrafficLimit());
         try {
             COSObject cosObject = invoke(request, new COSObjectResponseHandler());
             cosObject.setBucketName(getObjectRequest.getBucketName());
@@ -1004,6 +1105,8 @@ public class COSClient implements COS {
     @Override
     public ObjectMetadata getObject(final GetObjectRequest getObjectRequest, File destinationFile)
             throws CosClientException, CosServiceException {
+        rejectNull(getObjectRequest,
+                "The GetObjectRequest parameter must be specified when requesting an object");
         rejectNull(destinationFile,
                 "The destination file parameter must be specified when downloading an object directly to a file");
         rejectNull(clientConfig.getRegion(),
@@ -1092,6 +1195,8 @@ public class COSClient implements COS {
         rejectNull(deleteObjectRequest.getKey(),
                 "The key must be specified when deleting an object");
 
+        rejectEmpty(deleteObjectRequest.getKey(),
+                                "The length of the key must be greater than 0");
         CosHttpRequest<DeleteObjectRequest> request =
                 createRequest(deleteObjectRequest.getBucketName(), deleteObjectRequest.getKey(),
                         deleteObjectRequest, HttpMethodName.DELETE);
@@ -1101,6 +1206,8 @@ public class COSClient implements COS {
     @Override
     public DeleteObjectsResult deleteObjects(DeleteObjectsRequest deleteObjectsRequest)
             throws MultiObjectDeleteException, CosClientException, CosServiceException {
+        rejectNull(deleteObjectsRequest,
+                "The DeleteObjectsRequest parameter must be specified when deleting objects");
         rejectNull(clientConfig.getRegion(),
                 "region is null, region in clientConfig must be specified when deleting objects");
 
@@ -1158,7 +1265,7 @@ public class COSClient implements COS {
     public void deleteVersion(DeleteVersionRequest deleteVersionRequest)
             throws CosClientException, CosServiceException {
         rejectNull(deleteVersionRequest,
-                "The delete version request object must be specified when deleting a version");
+                "The DeleteVersionRequest parameter must be specified when deleting a version");
         rejectNull(clientConfig.getRegion(),
                 "region is null, region in clientConfig must be specified when deleting a version");
 
@@ -1239,16 +1346,9 @@ public class COSClient implements COS {
     public boolean doesBucketExist(String bucketName)
             throws CosClientException, CosServiceException {
         try {
-            getBucketAcl(bucketName);
+            headBucket(new HeadBucketRequest(bucketName));
             return true;
         } catch (CosServiceException cse) {
-            // A redirect error or an AccessDenied exception means the bucket exists but it's not in
-            // this region
-            // or we don't have permissions to it.
-            if ((cse.getStatusCode() == Constants.BUCKET_REDIRECT_STATUS_CODE)
-                    || "AccessDenied".equals(cse.getErrorCode())) {
-                return true;
-            }
             if (cse.getStatusCode() == Constants.NO_SUCH_BUCKET_STATUS_CODE) {
                 return false;
             }
@@ -1259,6 +1359,8 @@ public class COSClient implements COS {
     @Override
     public HeadBucketResult headBucket(HeadBucketRequest headBucketRequest)
             throws CosClientException, CosServiceException {
+        rejectNull(headBucketRequest,
+                "The HeadBucketRequest parameter must be specified when head a bucket");
         String bucketName = headBucketRequest.getBucketName();
 
         rejectNull(bucketName, "The bucketName parameter must be specified.");
@@ -1355,6 +1457,9 @@ public class COSClient implements COS {
         // Populate the SSE KMS parameters to the request header
         populateSSE_KMS(request, initiateMultipartUploadRequest.getSSECOSKeyManagementParams());
 
+        // init upload body length is zero
+        request.addHeader(Headers.CONTENT_LENGTH, String.valueOf(0));
+
         @SuppressWarnings("unchecked")
         ResponseHeaderHandlerChain<InitiateMultipartUploadResult> responseHandler =
                 new ResponseHeaderHandlerChain<InitiateMultipartUploadResult>(
@@ -1399,6 +1504,8 @@ public class COSClient implements COS {
         // Populate the SSE-C parameters to the request header
         populateSSE_C(request, uploadPartRequest.getSSECustomerKey());
 
+        // Populate the traffic limit parameter to the request header
+        populateTrafficLimit(request, uploadPartRequest.getTrafficLimit());
         InputStream isCurr = isOrig;
         try {
             if (fileOrig == null) {
@@ -1471,6 +1578,7 @@ public class COSClient implements COS {
             result.setSSEAlgorithm(metadata.getSSEAlgorithm());
             result.setSSECustomerAlgorithm(metadata.getSSECustomerAlgorithm());
             result.setSSECustomerKeyMd5(metadata.getSSECustomerKeyMd5());
+            result.setCrc64Ecma(metadata.getCrc64Ecma());
 
             return result;
         } catch (Throwable t) {
@@ -1568,9 +1676,15 @@ public class COSClient implements COS {
 
             request.addHeader("Content-Type", "text/plain");
             request.addHeader("Content-Length", String.valueOf(xml.length));
-
+            ObjectMetadata objectMetadata = completeMultipartUploadRequest.getObjectMetadata();
+            if(objectMetadata != null) {
+                populateRequestMetadata(request, objectMetadata);
+            }
             request.setContent(new ByteArrayInputStream(xml));
-
+            if(completeMultipartUploadRequest.getPicOperations() != null) {
+                request.addHeader(Headers.PIC_OPERATIONS, Jackson.toJsonString(
+                        completeMultipartUploadRequest.getPicOperations()));
+            }
             @SuppressWarnings("unchecked")
             ResponseHeaderHandlerChain<CompleteMultipartUploadHandler> responseHandler =
                     new ResponseHeaderHandlerChain<CompleteMultipartUploadHandler>(
@@ -1582,8 +1696,15 @@ public class COSClient implements COS {
                             new VIDResultHandler<CompleteMultipartUploadHandler>());
             handler = invoke(request, responseHandler);
             if (handler.getCompleteMultipartUploadResult() != null) {
-                String versionId = responseHandler.getResponseHeaders().get(Headers.COS_VERSION_ID);
+                Map<String, String> responseHeaders = responseHandler.getResponseHeaders();
+                String versionId = responseHeaders.get(Headers.COS_VERSION_ID);
+                String crc64Ecma = responseHeaders.get(Headers.COS_HASH_CRC64_ECMA);
                 handler.getCompleteMultipartUploadResult().setVersionId(versionId);
+                handler.getCompleteMultipartUploadResult().setCrc64Ecma(crc64Ecma);
+                // if ci request, set ciUploadResult to CompleteMultipartUploadResult
+                if(completeMultipartUploadRequest.getPicOperations() != null) {
+                    handler.getCompleteMultipartUploadResult().setCiUploadResult(handler.getCiUploadResult());
+                }
                 return handler.getCompleteMultipartUploadResult();
             }
         } while (shouldRetryCompleteMultipartUpload(completeMultipartUploadRequest,
@@ -1643,6 +1764,8 @@ public class COSClient implements COS {
     @Override
     public ObjectListing listObjects(ListObjectsRequest listObjectsRequest)
             throws CosClientException, CosServiceException {
+        rejectNull(listObjectsRequest,
+                "The ListObjectsRequest parameter must be specified when listing objects in a bucket");
         rejectNull(listObjectsRequest.getBucketName(),
                 "The bucket name parameter must be specified when listing objects in a bucket");
         rejectNull(clientConfig.getRegion(),
@@ -1663,8 +1786,9 @@ public class COSClient implements COS {
         if (listObjectsRequest.getMaxKeys() != null
                 && listObjectsRequest.getMaxKeys().intValue() >= 0)
             request.addParameter("max-keys", listObjectsRequest.getMaxKeys().toString());
-
-        return invoke(request, new Unmarshallers.ListObjectsUnmarshaller(shouldSDKDecodeResponse));
+        COSXmlResponseHandler<ObjectListing> handler =
+                new COSXmlResponseHandler(new Unmarshallers.ListObjectsUnmarshaller(shouldSDKDecodeResponse));
+        return invoke(request, handler);
     }
 
     @Override
@@ -1719,6 +1843,8 @@ public class COSClient implements COS {
     @Override
     public VersionListing listVersions(ListVersionsRequest listVersionsRequest)
             throws CosClientException, CosServiceException {
+        rejectNull(listVersionsRequest,
+                "The ListVersionsRequest parameter must be specified when listing versions in a bucket");
         rejectNull(listVersionsRequest.getBucketName(),
                 "The bucket name parameter must be specified when listing versions in a bucket");
         rejectNull(clientConfig.getRegion(),
@@ -1790,6 +1916,8 @@ public class COSClient implements COS {
     @Override
     public CopyObjectResult copyObject(CopyObjectRequest copyObjectRequest)
             throws CosClientException, CosServiceException {
+        rejectNull(copyObjectRequest,
+                "The CopyObjectRequest parameter must be specified when copying an object");
         rejectNull(copyObjectRequest.getSourceBucketName(),
                 "The source bucket name must be specified when copying an object");
         rejectNull(copyObjectRequest.getSourceKey(),
@@ -1823,7 +1951,6 @@ public class COSClient implements COS {
                             new Unmarshallers.CopyObjectUnmarshaller(),
                             // header handlers
                             new ServerSideEncryptionHeaderHandler<CopyObjectResultHandler>(),
-                            new COSVersionHeaderHandler(),
                             new ObjectExpirationHeaderHandler<CopyObjectResultHandler>(),
                             new VIDResultHandler<CopyObjectResultHandler>());
             copyObjectResultHandler = invoke(request, handler);
@@ -1874,6 +2001,7 @@ public class COSClient implements COS {
         copyObjectResult.setExpirationTime(copyObjectResultHandler.getExpirationTime());
         copyObjectResult.setExpirationTimeRuleId(copyObjectResultHandler.getExpirationTimeRuleId());
         copyObjectResult.setDateStr(copyObjectResultHandler.getDateStr());
+        copyObjectResult.setCrc64Ecma(copyObjectResultHandler.getCrc64Ecma());
         copyObjectResult.setRequestId(copyObjectResultHandler.getRequestId());
 
         return copyObjectResult;
@@ -1882,6 +2010,8 @@ public class COSClient implements COS {
     @Override
     public CopyPartResult copyPart(CopyPartRequest copyPartRequest)
             throws CosClientException, CosServiceException {
+        rejectNull(copyPartRequest,
+                "The CopyPartRequest parameter must be specified when copying a part");
         rejectNull(copyPartRequest.getSourceBucketName(),
                 "The source bucket name must be specified when copying a part");
         rejectNull(copyPartRequest.getSourceKey(),
@@ -1974,6 +2104,7 @@ public class COSClient implements COS {
         copyPartResult.setSSEAlgorithm(copyObjectResultHandler.getSSEAlgorithm());
         copyPartResult.setSSECustomerAlgorithm(copyObjectResultHandler.getSSECustomerAlgorithm());
         copyPartResult.setSSECustomerKeyMd5(copyObjectResultHandler.getSSECustomerKeyMd5());
+        copyPartResult.setCrc64Ecma(copyObjectResultHandler.getCrc64Ecma());
 
         return copyPartResult;
     }
@@ -2222,6 +2353,8 @@ public class COSClient implements COS {
     @Override
     public void setBucketAcl(SetBucketAclRequest setBucketAclRequest)
             throws CosClientException, CosServiceException {
+        rejectNull(setBucketAclRequest,
+                "The SetBucketAclRequest parameter must be specified when setting a bucket's ACL");
         String bucketName = setBucketAclRequest.getBucketName();
         rejectNull(bucketName,
                 "The bucket name parameter must be specified when setting a bucket's ACL");
@@ -2256,6 +2389,8 @@ public class COSClient implements COS {
     @Override
     public AccessControlList getBucketAcl(GetBucketAclRequest getBucketAclRequest)
             throws CosClientException, CosServiceException {
+        rejectNull(getBucketAclRequest,
+                "The bucket name parameter must be specified when requesting a bucket's ACL");
         String bucketName = getBucketAclRequest.getBucketName();
         rejectNull(bucketName,
                 "The bucket name parameter must be specified when requesting a bucket's ACL");
@@ -2295,7 +2430,7 @@ public class COSClient implements COS {
         @SuppressWarnings("unchecked")
         ResponseHeaderHandlerChain<AccessControlList> responseHandler =
                 new ResponseHeaderHandlerChain<AccessControlList>(
-                        new Unmarshallers.AccessControlListUnmarshaller());
+                        new Unmarshallers.AccessControlListUnmarshaller(), new COSDefaultAclHeaderHandler());
 
         return invoke(request, responseHandler);
     }
@@ -2544,6 +2679,8 @@ public class COSClient implements COS {
     public void deleteBucketReplicationConfiguration(
             DeleteBucketReplicationConfigurationRequest deleteBucketReplicationConfigurationRequest)
             throws CosClientException, CosServiceException {
+        rejectNull(deleteBucketReplicationConfigurationRequest,
+                "The DeleteBucketReplicationConfigurationRequest parameter must be specified when deleting replication configuration");
         final String bucketName = deleteBucketReplicationConfigurationRequest.getBucketName();
         rejectNull(bucketName,
                 "The bucket name parameter must be specified when deleting replication configuration");
@@ -2615,28 +2752,27 @@ public class COSClient implements COS {
         addResponseHeaderParameters(request, req.getResponseHeaders());
 
         COSSigner cosSigner = new COSSigner();
+        COSCredentials cred = fetchCredential();
         String authStr =
                 cosSigner.buildAuthorizationStr(request.getHttpMethod(), request.getResourcePath(),
-                        request.getHeaders(), request.getParameters(), fetchCredential(), req.getExpiration());
+                        request.getHeaders(), request.getParameters(), cred, req.getExpiration());
         StringBuilder strBuilder = new StringBuilder();
-        strBuilder.append("http://").append(formatBucket(bucketName, fetchCredential().getCOSAppId()));
-
-        String endpointSuffix = clientConfig.getEndPointSuffix();
-
-        if (endpointSuffix == null) {
-            endpointSuffix = String.format(".%s.myqcloud.com",
-                    formatRegion(clientConfig.getRegion().getRegionName()));
-        }
-        if (!endpointSuffix.startsWith(".")) {
-            endpointSuffix = "." + endpointSuffix;
-        }
-
-        strBuilder.append(endpointSuffix)
-                .append(UrlEncoderUtils.encodeEscapeDelimiter(formatKey(key)));
+        strBuilder.append(clientConfig.getHttpProtocol().toString()).append("://");
+        strBuilder.append(clientConfig.getEndpointBuilder()
+                .buildGeneralApiEndpoint(formatBucket(bucketName, cred.getCOSAppId())));
+        strBuilder.append(UrlEncoderUtils.encodeUrlPath(formatKey(key)));
 
         boolean hasAppendFirstParameter = false;
         if (authStr != null) {
-            strBuilder.append("?sign=").append(UrlEncoderUtils.encode(authStr));
+            if(req.isSignPrefixMode()) {
+                strBuilder.append("?sign=").append(UrlEncoderUtils.encode(authStr));
+            } else {
+                strBuilder.append("?").append(authStr);
+            }
+            if (cred instanceof COSSessionCredentials) {
+                strBuilder.append("&").append(Headers.SECURITY_TOKEN).append("=").append(
+                        UrlEncoderUtils.encode(((COSSessionCredentials) cred).getSessionToken()));
+            }
             hasAppendFirstParameter = true;
         }
 
@@ -2672,7 +2808,8 @@ public class COSClient implements COS {
     @Override
     public void restoreObject(RestoreObjectRequest restoreObjectRequest)
             throws CosClientException, CosServiceException {
-
+        rejectNull(restoreObjectRequest,
+                "The RestoreObjectRequest parameter must be specified when restore a object.");
         String bucketName = restoreObjectRequest.getBucketName();
         String key = restoreObjectRequest.getKey();
         String versionId = restoreObjectRequest.getVersionId();
@@ -2720,6 +2857,49 @@ public class COSClient implements COS {
     public void setBucketPolicy(String bucketName, String policyText)
             throws CosClientException, CosServiceException {
         setBucketPolicy(new SetBucketPolicyRequest(bucketName, policyText));
+    }
+
+    @Override
+    public BucketLoggingConfiguration getBucketLoggingConfiguration(String bucketName)
+            throws CosClientException, CosServiceException {
+        return getBucketLoggingConfiguration(new GetBucketLoggingConfigurationRequest(bucketName));
+    }
+
+    @Override
+    public BucketLoggingConfiguration getBucketLoggingConfiguration(GetBucketLoggingConfigurationRequest getBucketLoggingConfigurationRequest)
+            throws CosClientException, CosServiceException {
+        rejectNull(getBucketLoggingConfigurationRequest, "The request object parameter getBucketLoggingConfigurationRequest must be specifed.");
+        String bucketName = getBucketLoggingConfigurationRequest.getBucketName();
+        rejectNull(bucketName,
+                "The bucket name parameter must be specified when requesting a bucket's logging status");
+
+        CosHttpRequest<GetBucketLoggingConfigurationRequest> request = createRequest(bucketName, null, getBucketLoggingConfigurationRequest, HttpMethodName.GET);
+        request.addParameter("logging", null);
+
+        return invoke(request, new Unmarshallers.BucketLoggingConfigurationnmarshaller());
+    }
+
+    @Override
+    public void setBucketLoggingConfiguration(SetBucketLoggingConfigurationRequest setBucketLoggingConfigurationRequest)
+            throws CosClientException, CosServiceException {
+        rejectNull(setBucketLoggingConfigurationRequest,
+                "The set bucket logging configuration request object must be specified when enabling server access logging");
+
+        String bucketName = setBucketLoggingConfigurationRequest.getBucketName();
+        BucketLoggingConfiguration loggingConfiguration = setBucketLoggingConfigurationRequest.getLoggingConfiguration();
+
+        rejectNull(bucketName,
+                "The bucket name parameter must be specified when enabling server access logging");
+        rejectNull(loggingConfiguration,
+                "The logging configuration parameter must be specified when enabling server access logging");
+
+        CosHttpRequest<SetBucketLoggingConfigurationRequest> request = createRequest(bucketName, null, setBucketLoggingConfigurationRequest, HttpMethodName.PUT);
+        request.addParameter("logging", null);
+
+        byte[] bytes = new BucketConfigurationXmlFactory().convertToXmlByteArray(loggingConfiguration);
+        request.setContent(new ByteArrayInputStream(bytes));
+
+        invoke(request, voidCosResponseHandler);
     }
 
     @Override
@@ -2794,6 +2974,908 @@ public class COSClient implements COS {
         request.addParameter("policy", null);
 
         invoke(request, voidCosResponseHandler);
+    }
+
+    @Override
+    public BucketWebsiteConfiguration getBucketWebsiteConfiguration(String bucketName)
+            throws CosClientException, CosServiceException {
+        return getBucketWebsiteConfiguration(new GetBucketWebsiteConfigurationRequest(bucketName));
+    }
+
+    @Override
+    public BucketWebsiteConfiguration getBucketWebsiteConfiguration(GetBucketWebsiteConfigurationRequest getBucketWebsiteConfigurationRequest)
+            throws CosClientException, CosServiceException {
+        rejectNull(getBucketWebsiteConfigurationRequest, "The request object parameter getBucketWebsiteConfigurationRequest must be specified.");
+        String bucketName = getBucketWebsiteConfigurationRequest.getBucketName();
+        rejectNull(bucketName,
+                "The bucket name parameter must be specified when requesting a bucket's website configuration");
+
+        CosHttpRequest<GetBucketWebsiteConfigurationRequest> request = createRequest(bucketName, null, getBucketWebsiteConfigurationRequest, HttpMethodName.GET);
+        request.addParameter("website", null);
+        request.addHeader("Content-Type", "application/xml");
+
+        try {
+            return invoke(request, new Unmarshallers.BucketWebsiteConfigurationUnmarshaller());
+        } catch (CosServiceException ase) {
+            if (ase.getStatusCode() == 404) return null;
+            throw ase;
+        }
+    }
+
+    @Override
+    public void setBucketWebsiteConfiguration(String bucketName, BucketWebsiteConfiguration configuration)
+            throws CosClientException, CosServiceException {
+        setBucketWebsiteConfiguration(new SetBucketWebsiteConfigurationRequest(bucketName, configuration));
+    }
+
+    @Override
+    public void setBucketWebsiteConfiguration(SetBucketWebsiteConfigurationRequest setBucketWebsiteConfigurationRequest)
+            throws CosClientException, CosServiceException {
+        String bucketName = setBucketWebsiteConfigurationRequest.getBucketName();
+        BucketWebsiteConfiguration configuration = setBucketWebsiteConfigurationRequest.getConfiguration();
+
+        rejectNull(bucketName,
+                "The bucket name parameter must be specified when setting a bucket's website configuration");
+        rejectNull(configuration,
+                "The bucket website configuration parameter must be specified when setting a bucket's website configuration");
+        if (configuration.getRedirectAllRequestsTo() == null) {
+            rejectNull(configuration.getIndexDocumentSuffix(),
+                    "The bucket website configuration parameter must specify the index document suffix when setting a bucket's website configuration");
+        }
+
+        CosHttpRequest<SetBucketWebsiteConfigurationRequest> request = createRequest(bucketName, null, setBucketWebsiteConfigurationRequest, HttpMethodName.PUT);
+        request.addParameter("website", null);
+        request.addHeader("Content-Type", "application/xml");
+
+        byte[] bytes = new BucketConfigurationXmlFactory().convertToXmlByteArray(configuration);
+        request.setContent(new ByteArrayInputStream(bytes));
+
+        invoke(request, voidCosResponseHandler);
+    }
+
+    @Override
+    public void deleteBucketWebsiteConfiguration(String bucketName)
+            throws CosClientException, CosServiceException {
+        deleteBucketWebsiteConfiguration(new DeleteBucketWebsiteConfigurationRequest(bucketName));
+    }
+
+    @Override
+    public void deleteBucketWebsiteConfiguration(DeleteBucketWebsiteConfigurationRequest deleteBucketWebsiteConfigurationRequest)
+            throws CosClientException, CosServiceException {
+        String bucketName = deleteBucketWebsiteConfigurationRequest.getBucketName();
+
+        rejectNull(bucketName,
+                "The bucket name parameter must be specified when deleting a bucket's website configuration");
+
+        CosHttpRequest<DeleteBucketWebsiteConfigurationRequest> request = createRequest(bucketName, null, deleteBucketWebsiteConfigurationRequest, HttpMethodName.DELETE);
+        request.addParameter("website", null);
+        request.addHeader("Content-Type", "application/xml");
+
+        invoke(request, voidCosResponseHandler);
+    }
+
+    @Override
+    public void setBucketDomainConfiguration(String bucketName, BucketDomainConfiguration configuration)
+            throws CosClientException, CosServiceException {
+        setBucketDomainConfiguration(new SetBucketDomainConfigurationRequest(bucketName, configuration));
+    }
+
+    @Override
+    public void setBucketDomainConfiguration(SetBucketDomainConfigurationRequest setBucketDomainConfigurationRequest)
+            throws CosClientException, CosServiceException {
+        rejectNull(setBucketDomainConfigurationRequest,
+                "The request object parameter setBucketDomainConfigurationRequest must be specified.");
+        String bucketName = setBucketDomainConfigurationRequest.getBucketName();
+        BucketDomainConfiguration configuration = setBucketDomainConfigurationRequest.getConfiguration();
+
+        rejectNull(bucketName,
+                "The bucket name parameter must be specified when setting a bucket's domain configuration");
+        rejectNull(configuration,
+                "The bucket domain configuration parameter must be specified when setting a bucket's domain configuration");
+        rejectNull(configuration.getDomainRules(),
+                "The bucket domain rules must specify the index document suffix when setting a bucket's domain configuration");
+
+        CosHttpRequest<SetBucketDomainConfigurationRequest> request = createRequest(bucketName,
+                null, setBucketDomainConfigurationRequest, HttpMethodName.PUT);
+        request.addParameter("domain", null);
+        request.addHeader("Content-Type", "application/xml");
+
+        byte[] bytes = new BucketConfigurationXmlFactory().convertToXmlByteArray(configuration);
+        request.setContent(new ByteArrayInputStream(bytes));
+
+        invoke(request, voidCosResponseHandler);
+    }
+
+    @Override
+    public BucketDomainConfiguration getBucketDomainConfiguration(String bucketName)
+            throws CosClientException, CosServiceException {
+        return getBucketDomainConfiguration(new GetBucketDomainConfigurationRequest(bucketName));
+    }
+
+    @Override
+    public BucketDomainConfiguration getBucketDomainConfiguration(GetBucketDomainConfigurationRequest getBucketDomainConfigurationRequest)
+            throws CosClientException, CosServiceException {
+        rejectNull(getBucketDomainConfigurationRequest,
+                "The request object parameter getBucketDomainConfigurationRequest must be specified.");
+        String bucketName = getBucketDomainConfigurationRequest.getBucketName();
+        rejectNull(bucketName,
+                "The bucket name must be specified when retrieving the bucket domain configuration.");
+
+        CosHttpRequest<GetBucketDomainConfigurationRequest> request = createRequest(bucketName,
+                null, getBucketDomainConfigurationRequest, HttpMethodName.GET);
+        request.addParameter("domain", null);
+
+        try {
+            return invoke(request, new Unmarshallers.BucketDomainConfigurationUnmarshaller());
+        } catch (CosServiceException cse) {
+            switch (cse.getStatusCode()) {
+                case 404:
+                    return null;
+                default:
+                    throw cse;
+            }
+        }
+    }
+
+    @Override
+    public DeleteBucketInventoryConfigurationResult deleteBucketInventoryConfiguration(
+            String bucketName, String id) throws CosClientException, CosServiceException {
+        return deleteBucketInventoryConfiguration(
+                new DeleteBucketInventoryConfigurationRequest(bucketName, id));
+    }
+
+    @Override
+    public DeleteBucketInventoryConfigurationResult deleteBucketInventoryConfiguration(
+            DeleteBucketInventoryConfigurationRequest deleteBucketInventoryConfigurationRequest)
+            throws CosClientException, CosServiceException {
+        rejectNull(deleteBucketInventoryConfigurationRequest, "The request cannot be null");
+        rejectNull(deleteBucketInventoryConfigurationRequest.getBucketName(), "The bucketName cannot be null");
+        rejectNull(deleteBucketInventoryConfigurationRequest.getId(), "The id cannot be null");
+        String bucketName = deleteBucketInventoryConfigurationRequest.getBucketName();
+        String id = deleteBucketInventoryConfigurationRequest.getId();
+
+        CosHttpRequest<DeleteBucketInventoryConfigurationRequest> request = createRequest(bucketName, null, deleteBucketInventoryConfigurationRequest, HttpMethodName.DELETE);
+        request.addParameter("inventory", null);
+        request.addParameter("id", id);
+
+        return invoke(request, new Unmarshallers.DeleteBucketInventoryConfigurationUnmarshaller());
+    }
+
+    @Override
+    public GetBucketInventoryConfigurationResult getBucketInventoryConfiguration(
+            String bucketName, String id) throws CosClientException, CosServiceException {
+        return getBucketInventoryConfiguration(
+                new GetBucketInventoryConfigurationRequest(bucketName, id));
+    }
+
+    @Override
+    public GetBucketInventoryConfigurationResult getBucketInventoryConfiguration(
+            GetBucketInventoryConfigurationRequest getBucketInventoryConfigurationRequest)
+            throws CosClientException, CosServiceException {
+        rejectNull(getBucketInventoryConfigurationRequest, "The request cannot be null");
+        rejectNull(getBucketInventoryConfigurationRequest.getBucketName(), "The bucketName cannot be null");
+        rejectNull(getBucketInventoryConfigurationRequest.getId(), "The id cannot be null");
+        String bucketName = getBucketInventoryConfigurationRequest.getBucketName();
+        String id = getBucketInventoryConfigurationRequest.getId();
+
+        CosHttpRequest<GetBucketInventoryConfigurationRequest> request = createRequest(bucketName, null, getBucketInventoryConfigurationRequest, HttpMethodName.GET);
+        request.addParameter("inventory", null);
+        request.addParameter("id", id);
+
+        return invoke(request, new Unmarshallers.GetBucketInventoryConfigurationUnmarshaller());
+    }
+
+    @Override
+    public SetBucketInventoryConfigurationResult setBucketInventoryConfiguration(
+            String bucketName, InventoryConfiguration inventoryConfiguration)
+            throws CosClientException, CosServiceException {
+        return setBucketInventoryConfiguration(
+                new SetBucketInventoryConfigurationRequest(bucketName, inventoryConfiguration));
+    }
+
+    @Override
+    public SetBucketInventoryConfigurationResult setBucketInventoryConfiguration(
+            SetBucketInventoryConfigurationRequest setBucketInventoryConfigurationRequest)
+            throws CosClientException, CosServiceException {
+        rejectNull(setBucketInventoryConfigurationRequest, "The request cannot be null");
+        rejectNull(setBucketInventoryConfigurationRequest.getBucketName(), "The bucketName cannot be null");
+        rejectNull(setBucketInventoryConfigurationRequest.getInventoryConfiguration(), "The inventoryConfiguration cannot be null");
+        rejectNull(setBucketInventoryConfigurationRequest.getInventoryConfiguration().getId(), "The inventoryConfiguration.id cannot be null");
+        final String bucketName = setBucketInventoryConfigurationRequest.getBucketName();
+        final InventoryConfiguration inventoryConfiguration = setBucketInventoryConfigurationRequest.getInventoryConfiguration();
+        final String id = inventoryConfiguration.getId();
+
+        CosHttpRequest<SetBucketInventoryConfigurationRequest> request = createRequest(bucketName, null, setBucketInventoryConfigurationRequest, HttpMethodName.PUT);
+        request.addParameter("inventory", null);
+        request.addParameter("id", id);
+
+        final byte[] bytes = new BucketConfigurationXmlFactory().convertToXmlByteArray(inventoryConfiguration);
+        request.addHeader("Content-Length", String.valueOf(bytes.length));
+        request.addHeader("Content-Type", "application/xml");
+        request.setContent(new ByteArrayInputStream(bytes));
+
+        return invoke(request, new Unmarshallers.SetBucketInventoryConfigurationUnmarshaller());
+    }
+
+    @Override
+    public ListBucketInventoryConfigurationsResult listBucketInventoryConfigurations(ListBucketInventoryConfigurationsRequest listBucketInventoryConfigurationsRequest)
+            throws CosClientException, CosServiceException {
+        rejectNull(listBucketInventoryConfigurationsRequest, "The request cannot be null");
+        rejectNull(listBucketInventoryConfigurationsRequest.getBucketName(), "The bucketName cannot be null");
+        final String bucketName = listBucketInventoryConfigurationsRequest.getBucketName();
+
+        CosHttpRequest<ListBucketInventoryConfigurationsRequest> request = createRequest(bucketName, null, listBucketInventoryConfigurationsRequest, HttpMethodName.GET);
+        request.addParameter("inventory", null);
+        addParameterIfNotNull(request, "continuation-token", listBucketInventoryConfigurationsRequest.getContinuationToken());
+
+        return invoke(request, new Unmarshallers.ListBucketInventoryConfigurationsUnmarshaller());
+    }
+    @Override
+    public BucketTaggingConfiguration getBucketTaggingConfiguration(String bucketName) {
+        return getBucketTaggingConfiguration(new GetBucketTaggingConfigurationRequest(bucketName));
+    }
+
+    @Override
+    public BucketTaggingConfiguration getBucketTaggingConfiguration(GetBucketTaggingConfigurationRequest getBucketTaggingConfigurationRequest) {
+        rejectNull(getBucketTaggingConfigurationRequest, "The request object parameter getBucketTaggingConfigurationRequest must be specifed.");
+        String bucketName = getBucketTaggingConfigurationRequest.getBucketName();
+        rejectNull(bucketName, "The bucket name must be specified when retrieving the bucket tagging configuration.");
+
+        CosHttpRequest<GetBucketTaggingConfigurationRequest> request = createRequest(bucketName, null, getBucketTaggingConfigurationRequest, HttpMethodName.GET);
+        request.addParameter("tagging", null);
+
+        try {
+            return invoke(request, new Unmarshallers.BucketTaggingConfigurationUnmarshaller());
+        } catch (CosServiceException ase) {
+            switch (ase.getStatusCode()) {
+                case 404:
+                    return null;
+                default:
+                    throw ase;
+            }
+        }
+    }
+
+    @Override
+    public void setBucketTaggingConfiguration(String bucketName, BucketTaggingConfiguration bucketTaggingConfiguration) {
+        setBucketTaggingConfiguration(new SetBucketTaggingConfigurationRequest(bucketName, bucketTaggingConfiguration));
+    }
+
+    @Override
+    public void setBucketTaggingConfiguration(
+            SetBucketTaggingConfigurationRequest setBucketTaggingConfigurationRequest) {
+        rejectNull(setBucketTaggingConfigurationRequest,
+                "The set bucket tagging configuration request object must be specified.");
+
+        String bucketName = setBucketTaggingConfigurationRequest.getBucketName();
+        BucketTaggingConfiguration bucketTaggingConfiguration = setBucketTaggingConfigurationRequest.getTaggingConfiguration();
+
+        rejectNull(bucketName,
+                "The bucket name parameter must be specified when setting bucket tagging configuration.");
+        rejectNull(bucketTaggingConfiguration,
+                "The tagging configuration parameter must be specified when setting bucket tagging configuration.");
+
+        CosHttpRequest<SetBucketTaggingConfigurationRequest> request = createRequest(bucketName, null, setBucketTaggingConfigurationRequest, HttpMethodName.PUT);
+        request.addParameter("tagging", null);
+
+        byte[] content = new BucketConfigurationXmlFactory().convertToXmlByteArray(bucketTaggingConfiguration);
+        request.addHeader("Content-Length", String.valueOf(content.length));
+        request.addHeader("Content-Type", "application/xml");
+        request.setContent(new ByteArrayInputStream(content));
+        try {
+            byte[] md5 = Md5Utils.computeMD5Hash(content);
+            String md5Base64 = BinaryUtils.toBase64(md5);
+            request.addHeader("Content-MD5", md5Base64);
+        } catch ( Exception e ) {
+            throw new CosClientException("Couldn't compute md5 sum", e);
+        }
+
+        invoke(request, voidCosResponseHandler);
+    }
+
+    @Override
+    public void deleteBucketTaggingConfiguration(String bucketName) {
+        deleteBucketTaggingConfiguration(new DeleteBucketTaggingConfigurationRequest(bucketName));
+    }
+
+    @Override
+    public void deleteBucketTaggingConfiguration(
+            DeleteBucketTaggingConfigurationRequest deleteBucketTaggingConfigurationRequest) {
+        rejectNull(deleteBucketTaggingConfigurationRequest,
+                "The delete bucket tagging configuration request object must be specified.");
+
+        String bucketName = deleteBucketTaggingConfigurationRequest.getBucketName();
+        rejectNull(bucketName,
+                "The bucket name parameter must be specified when deleting bucket tagging configuration.");
+
+        CosHttpRequest<DeleteBucketTaggingConfigurationRequest> request = createRequest(bucketName, null, deleteBucketTaggingConfigurationRequest, HttpMethodName.DELETE);
+        request.addParameter("tagging", null);
+
+        invoke(request, voidCosResponseHandler);
+    }
+
+    private void setContent(CosHttpRequest<?> request, byte[] content, String contentType, boolean setMd5) {
+        request.setContent(new ByteArrayInputStream(content));
+        request.addHeader("Content-Length", Integer.toString(content.length));
+        request.addHeader("Content-Type", contentType);
+        if (setMd5) {
+            try {
+                byte[] md5 = Md5Utils.computeMD5Hash(content);
+                String md5Base64 = BinaryUtils.toBase64(md5);
+                request.addHeader("Content-MD5", md5Base64);
+            } catch (Exception e) {
+                throw new CosClientException("Couldn't compute md5 sum", e);
+            }
+        }
+    }
+
+    @Override
+    public SelectObjectContentResult selectObjectContent(SelectObjectContentRequest selectRequest) throws CosClientException, CosServiceException {
+        rejectNull(selectRequest, "The request parameter must be specified");
+
+        rejectNull(selectRequest.getBucketName(), "The bucket name parameter must be specified when selecting object content.");
+        rejectNull(selectRequest.getKey(), "The key parameter must be specified when selecting object content.");
+
+        CosHttpRequest<SelectObjectContentRequest> request = createRequest(selectRequest.getBucketName(), selectRequest.getKey(), selectRequest, HttpMethodName.POST);
+        request.addParameter("select", null);
+        request.addParameter("select-type", "2");
+
+        populateSSE_C(request, selectRequest.getSSECustomerKey());
+
+        setContent(request, RequestXmlFactory.convertToXmlByteArray(selectRequest), ContentType.APPLICATION_XML.toString(), true);
+
+        COSObject result = invoke(request, new COSObjectResponseHandler());
+
+        // Hold a reference to this client while the InputStream is still
+        // around - otherwise a finalizer in the HttpClient may reset the
+        // underlying TCP connection out from under us.
+        SdkFilterInputStream resultStream = new ServiceClientHolderInputStream(result.getObjectContent(), this);
+
+        return new SelectObjectContentResult().withPayload(new SelectObjectContentEventStream(resultStream));
+    }
+
+    @Override
+    public GetObjectTaggingResult getObjectTagging(GetObjectTaggingRequest getObjectTaggingRequest) {
+        rejectNull(getObjectTaggingRequest,
+                "The request parameter must be specified when getting the object tags");
+        rejectNull(getObjectTaggingRequest.getBucketName(),
+                "The request bucketName must be specified when getting the object tags");
+        rejectNull(getObjectTaggingRequest.getKey(),
+                "The request key must be specified when getting the object tags");
+
+        CosHttpRequest<GetObjectTaggingRequest> request = createRequest(getObjectTaggingRequest.getBucketName(),
+                getObjectTaggingRequest.getKey(), getObjectTaggingRequest, HttpMethodName.GET);
+        request.addParameter("tagging", null);
+        addParameterIfNotNull(request, "versionId", getObjectTaggingRequest.getVersionId());
+
+        ResponseHeaderHandlerChain<GetObjectTaggingResult> handlerChain = new ResponseHeaderHandlerChain<GetObjectTaggingResult>(
+                new Unmarshallers.GetObjectTaggingResponseUnmarshaller(),
+                new GetObjectTaggingResponseHeaderHandler()
+        );
+
+        return invoke(request, handlerChain);
+    }
+
+    @Override
+    public SetObjectTaggingResult setObjectTagging(SetObjectTaggingRequest setObjectTaggingRequest) {
+        rejectNull(setObjectTaggingRequest,
+                "The request parameter must be specified setting the object tags");
+        rejectNull(setObjectTaggingRequest.getBucketName(),
+                "The request bucketName must be specified setting the object tags");
+        rejectNull(setObjectTaggingRequest.getKey(),
+                "The request key must be specified setting the object tags");
+        rejectNull(setObjectTaggingRequest.getTagging(),
+                "The request tagging must be specified setting the object tags");
+
+        CosHttpRequest<SetObjectTaggingRequest> request = createRequest(setObjectTaggingRequest.getBucketName(),
+                setObjectTaggingRequest.getKey(), setObjectTaggingRequest, HttpMethodName.PUT);
+        request.addParameter("tagging", null);
+        addParameterIfNotNull(request, "versionId", setObjectTaggingRequest.getVersionId());
+        byte[] content = new ObjectTaggingXmlFactory().convertToXmlByteArray(setObjectTaggingRequest.getTagging());
+        setContent(request, content, "application/xml", true);
+
+        ResponseHeaderHandlerChain<SetObjectTaggingResult> handlerChain = new ResponseHeaderHandlerChain<SetObjectTaggingResult>(
+                new Unmarshallers.SetObjectTaggingResponseUnmarshaller(),
+                new SetObjectTaggingResponseHeaderHandler()
+        );
+
+        return invoke(request, handlerChain);
+    }
+
+    @Override
+    public DeleteObjectTaggingResult deleteObjectTagging(DeleteObjectTaggingRequest deleteObjectTaggingRequest) {
+        rejectNull(deleteObjectTaggingRequest, "The request parameter must be specified when delete the object tags");
+        rejectNull(deleteObjectTaggingRequest.getBucketName(),
+                "The request bucketName must be specified setting the object tags");
+        rejectNull(deleteObjectTaggingRequest.getKey(),
+                "The request key must be specified setting the object tags");
+
+        CosHttpRequest<DeleteObjectTaggingRequest> request = createRequest(deleteObjectTaggingRequest.getBucketName(),
+                deleteObjectTaggingRequest.getKey(), deleteObjectTaggingRequest, HttpMethodName.DELETE);
+        request.addParameter("tagging", null);
+        addParameterIfNotNull(request, "versionId", deleteObjectTaggingRequest.getVersionId());
+
+        ResponseHeaderHandlerChain<DeleteObjectTaggingResult> handlerChain = new ResponseHeaderHandlerChain<DeleteObjectTaggingResult>(
+                new Unmarshallers.DeleteObjectTaggingResponseUnmarshaller(),
+                new DeleteObjectTaggingHeaderHandler()
+        );
+
+        return invoke(request, handlerChain);
+    }
+
+    @Override
+    public BucketIntelligentTierConfiguration getBucketIntelligentTierConfiguration(GetBucketIntelligentTierConfigurationRequest getBucketIntelligentTierConfigurationRequest) {
+        rejectNull(getBucketIntelligentTierConfigurationRequest, "The request cannot be null");
+        rejectNull(getBucketIntelligentTierConfigurationRequest.getBucketName(), "The bucketName cannot be null");
+        final String bucketName = getBucketIntelligentTierConfigurationRequest.getBucketName();
+
+        CosHttpRequest<GetBucketIntelligentTierConfigurationRequest> request = createRequest(bucketName, null, getBucketIntelligentTierConfigurationRequest, HttpMethodName.GET);
+        request.addParameter("intelligenttiering", null);
+        return invoke(request, new Unmarshallers.GetBucketIntelligentTierConfigurationsUnmarshaller());
+    }
+
+    @Override
+    public BucketIntelligentTierConfiguration getBucketIntelligentTierConfiguration(String bucketName) {
+        return getBucketIntelligentTierConfiguration(new GetBucketIntelligentTierConfigurationRequest(bucketName));
+    }
+
+    @Override
+    public void setBucketIntelligentTieringConfiguration(SetBucketIntelligentTierConfigurationRequest setBucketIntelligentTierConfigurationRequest) {
+        rejectNull(setBucketIntelligentTierConfigurationRequest, "The request cannot be null");
+        rejectNull(setBucketIntelligentTierConfigurationRequest.getBucketName(), "The bucketName cannot be null");
+        BucketIntelligentTierConfiguration bucketIntelligentTierConfiguration = setBucketIntelligentTierConfigurationRequest.getBucketIntelligentTierConfiguration();
+        rejectNull(bucketIntelligentTierConfiguration, "Bucket intelligent tier configuration cannot be null");
+        final String bucketName = setBucketIntelligentTierConfigurationRequest.getBucketName();
+
+        CosHttpRequest<SetBucketIntelligentTierConfigurationRequest> request = createRequest(bucketName, null, setBucketIntelligentTierConfigurationRequest, HttpMethodName.PUT);
+        request.addParameter("intelligenttiering", null);
+
+        byte[] content = new BucketConfigurationXmlFactory().convertToXmlByteArray(bucketIntelligentTierConfiguration);
+        request.addHeader("Content-Length", String.valueOf(content.length));
+        request.addHeader("Content-Type", "application/xml");
+        request.setContent(new ByteArrayInputStream(content));
+        invoke(request, voidCosResponseHandler);
+    }
+
+    @Override
+    public MediaJobResponse createMediaJobs(MediaJobsRequest req) throws UnsupportedEncodingException {
+        this.checkCIRequestCommon(req);
+        rejectNull(req.getTag(),
+                "The tag parameter must be specified setting the object tags");
+        rejectNull(req.getQueueId(),
+                "The queueId parameter must be specified setting the object tags");
+        rejectNull(req.getInput().getObject(),
+                "The input parameter must be specified setting the object tags");
+        this.checkRequestOutput(req.getOperation().getOutput());
+        this.rejectStartWith(req.getCallBack(),"http","The CallBack parameter mush start with http or https");
+        CosHttpRequest<MediaJobsRequest> request = createRequest(req.getBucketName(), "/jobs", req, HttpMethodName.POST);
+        this.setContent(request, RequestXmlFactory.convertToXmlByteArray(req), "application/xml", false);
+        return invoke(request, new Unmarshallers.JobCreatUnmarshaller());
+    }
+
+    @Override
+    public Boolean cancelMediaJob(MediaJobsRequest req) {
+        this.checkCIRequestCommon(req);
+        rejectNull(req.getJobId(),
+                "The jobId parameter must be specified setting the object tags");
+        CosHttpRequest<MediaJobsRequest> request = createRequest(req.getBucketName(), "/jobs/" + req.getJobId(), req, HttpMethodName.PUT);
+        invoke(request, voidCosResponseHandler);
+        return true;
+    }
+
+    @Override
+    public MediaJobResponse describeMediaJob(MediaJobsRequest req) {
+        this.checkCIRequestCommon(req);
+        rejectNull(req.getJobId(),
+                "The jobId parameter must be specified setting the object tags");
+        CosHttpRequest<MediaJobsRequest> request = createRequest(req.getBucketName(), "/jobs/" + req.getJobId(), req, HttpMethodName.GET);
+        return invoke(request, new Unmarshallers.JobUnmarshaller());
+
+    }
+
+    @Override
+    public MediaListJobResponse describeMediaJobs(MediaJobsRequest req) {
+        this.checkCIRequestCommon(req);
+        rejectNull(req.getQueueId(),
+                "The queueId parameter must be specified setting the object tags");
+        rejectNull(req.getTag(),
+                "The tag parameter must be specified setting the object tags");
+        CosHttpRequest<MediaJobsRequest> request = createRequest(req.getBucketName(), "/jobs", req, HttpMethodName.GET);
+        addParameterIfNotNull(request, "queueId", req.getQueueId());
+        addParameterIfNotNull(request, "tag", req.getTag());
+        addParameterIfNotNull(request, "orderByTime", req.getOrderByTime());
+        addParameterIfNotNull(request, "nextToken", req.getNextToken());
+        addParameterIfNotNull(request, "size", req.getSize().toString());
+        addParameterIfNotNull(request, "states", req.getStates());
+        addParameterIfNotNull(request, "startCreationTime", req.getStartCreationTime());
+        addParameterIfNotNull(request, "endCreationTime", req.getEndCreationTime());
+        MediaListJobResponse response = invoke(request, new Unmarshallers.ListJobUnmarshaller());
+        this.checkMediaListJobResponse(response);
+        return response;
+    }
+
+    @Override
+    public MediaListQueueResponse describeMediaQueues(MediaQueueRequest req) {
+        this.checkCIRequestCommon(req);
+        CosHttpRequest<MediaQueueRequest> request = createRequest(req.getBucketName(), "/queue", req, HttpMethodName.GET);
+        addParameterIfNotNull(request, "queueIds", req.getQueueId());
+        addParameterIfNotNull(request, "state", req.getState());
+        addParameterIfNotNull(request, "pageNumber", req.getPageNumber());
+        addParameterIfNotNull(request, "pageSize", req.getPageSize());
+        return invoke(request, new Unmarshallers.ListQueueUnmarshaller());
+    }
+
+    @Override
+    public MediaQueueResponse updateMediaQueue(MediaQueueRequest mediaQueueRequest) {
+        this.checkCIRequestCommon(mediaQueueRequest);
+        rejectNull(mediaQueueRequest.getQueueId(),
+                "The queueId parameter must be specified setting the object tags");
+        rejectNull(mediaQueueRequest.getName(),
+                "The name parameter must be specified setting the object tags");
+        rejectNull(mediaQueueRequest.getState(),
+                "The state parameter must be specified setting the object tags");
+        CosHttpRequest<MediaQueueRequest> request = createRequest(mediaQueueRequest.getBucketName(), "/queue/" + mediaQueueRequest.getQueueId(), mediaQueueRequest, HttpMethodName.PUT);
+        this.setContent(request, RequestXmlFactory.convertToXmlByteArray(mediaQueueRequest), "application/xml", false);
+        return invoke(request, new Unmarshallers.QueueUnmarshaller());
+    }
+
+    @Override
+    public MediaBucketResponse describeMediaBuckets(MediaBucketRequest mediaBucketRequest) {
+        this.checkCIRequestCommon(mediaBucketRequest);
+        CosHttpRequest<MediaBucketRequest> request = createRequest(mediaBucketRequest.getBucketName(), "/mediabucket", mediaBucketRequest, HttpMethodName.GET);
+        addParameterIfNotNull(request, "regions", mediaBucketRequest.getRegions());
+        addParameterIfNotNull(request, "bucketNames", mediaBucketRequest.getBucketNames());
+        addParameterIfNotNull(request, "bucketName", mediaBucketRequest.getBucketName());
+        addParameterIfNotNull(request, "pageNumber", mediaBucketRequest.getPageNumber());
+        addParameterIfNotNull(request, "pageSize", mediaBucketRequest.getPageSize());
+        return invoke(request, new Unmarshallers.ListBucketUnmarshaller());
+    }
+
+    @Override
+    public MediaTemplateResponse createMediaTemplate(MediaTemplateRequest templateRequest) {
+        rejectNull(templateRequest,
+                "The request parameter must be specified setting the object tags");
+        rejectNull(templateRequest.getTag(),
+                "The tag parameter must be specified setting the object tags");
+        rejectNull(templateRequest.getName(),
+                "The name parameter must be specified setting the object tags");
+        CosHttpRequest<MediaTemplateRequest> request = this.createRequest(templateRequest.getBucketName(), "/template", templateRequest, HttpMethodName.POST);
+        this.setContent(request, RequestXmlFactory.convertToXmlByteArray(templateRequest), "application/xml", false);
+        return this.invoke(request, new Unmarshallers.TemplateUnmarshaller());
+    }
+
+    @Override
+    public Boolean deleteMediaTemplate(MediaTemplateRequest request) {
+        this.checkCIRequestCommon(request);
+        rejectNull(request.getTemplateId(),
+                "The templateId parameter must be specified setting the object tags");
+        CosHttpRequest<MediaTemplateRequest> httpRequest = this.createRequest(request.getBucketName(), "/template/" + request.getTemplateId(), request, HttpMethodName.DELETE);
+        this.invoke(httpRequest, voidCosResponseHandler);
+        return true;
+    }
+
+    @Override
+    public MediaListTemplateResponse describeMediaTemplates(MediaTemplateRequest request) {
+        this.checkCIRequestCommon(request);
+        CosHttpRequest<MediaTemplateRequest> httpRequest = this.createRequest(request.getBucketName(), "/template", request, HttpMethodName.GET);
+        addParameterIfNotNull(httpRequest, "tag", request.getTag());
+        addParameterIfNotNull(httpRequest, "category", request.getCategory());
+        addParameterIfNotNull(httpRequest, "ids", request.getIds());
+        addParameterIfNotNull(httpRequest, "name", request.getName());
+        addParameterIfNotNull(httpRequest, "pageNumber", request.getPageNumber());
+        addParameterIfNotNull(httpRequest, "pageSize", request.getPageSize());
+        return this.invoke(httpRequest, new Unmarshallers.ListTemplateUnmarshaller());
+    }
+
+    @Override
+    public Boolean updateMediaTemplate(MediaTemplateRequest request) {
+        this.checkCIRequestCommon(request);
+        rejectNull(request.getTag(),
+                "The tag parameter must be specified setting the object tags");
+        rejectNull(request.getName(),
+                "The name parameter must be specified setting the object tags");
+        CosHttpRequest<MediaTemplateRequest> httpRequest = this.createRequest(request.getBucketName(), "/template/" + request.getTemplateId(), request, HttpMethodName.PUT);
+        this.setContent(httpRequest, RequestXmlFactory.convertToXmlByteArray(request), "application/xml", false);
+        this.invoke(httpRequest, voidCosResponseHandler);
+        return true;
+    }
+
+    @Override
+    public SnapshotResponse generateSnapshot(SnapshotRequest request) {
+        this.checkCIRequestCommon(request);
+        rejectNull(request.getTime(),
+                "The time parameter must be specified setting the object tags");
+        rejectNull(request.getInput().getObject(),
+                "The input.object parameter must be specified setting the object tags");
+        CosHttpRequest<SnapshotRequest> httpRequest = this.createRequest(request.getBucketName(), "/snapshot", request, HttpMethodName.POST);
+        this.setContent(httpRequest, RequestXmlFactory.convertToXmlByteArray(request), "application/xml", false);
+        return this.invoke(httpRequest, new Unmarshallers.SnapshotUnmarshaller());
+    }
+
+    @Override
+    public MediaInfoResponse generateMediainfo(MediaInfoRequest request) {
+        this.checkCIRequestCommon(request);
+        rejectNull(request.getInput().getObject(),
+                "The input.object parameter must be specified setting the object tags");
+        CosHttpRequest<MediaInfoRequest> httpRequest = this.createRequest(request.getBucketName(), "/mediainfo", request, HttpMethodName.POST);
+        this.setContent(httpRequest, RequestXmlFactory.convertToXmlByteArray(request), "application/xml", false);
+        return this.invoke(httpRequest, new Unmarshallers.MediaInfoUnmarshaller());
+    }
+
+    @Override
+    public Boolean deleteWorkflow(MediaWorkflowListRequest request) {
+        this.checkCIRequestCommon(request);
+        rejectNull(request.getWorkflowId(), "The request parameter must be specified when delete the object tags");
+        CosHttpRequest<MediaWorkflowListRequest> httpRequest = this.createRequest(request.getBucketName(), "/workflow/" + request.getWorkflowId(), request, HttpMethodName.DELETE);
+        this.invoke(httpRequest, voidCosResponseHandler);
+        return true;
+    }
+
+    @Override
+    public MediaWorkflowListResponse describeWorkflow(MediaWorkflowListRequest request) {
+        this.checkCIRequestCommon(request);
+        CosHttpRequest<MediaWorkflowListRequest> httpRequest = this.createRequest(request.getBucketName(), "/workflow", request, HttpMethodName.GET);
+        addParameterIfNotNull(httpRequest, "ids", request.getIds());
+        addParameterIfNotNull(httpRequest, "name", request.getName());
+        addParameterIfNotNull(httpRequest, "pageNumber", request.getPageNumber());
+        addParameterIfNotNull(httpRequest, "pageSize", request.getPageSize());
+        return this.invoke(httpRequest, new Unmarshallers.WorkflowListUnmarshaller());
+    }
+
+    @Override
+    public MediaWorkflowExecutionResponse describeWorkflowExecution(MediaWorkflowListRequest request) {
+        this.checkCIRequestCommon(request);
+        CosHttpRequest<MediaWorkflowListRequest> httpRequest = this.createRequest(request.getBucketName(), "/workflowexecution/" + request.getRunId(), request, HttpMethodName.GET);
+        return this.invoke(httpRequest, new Unmarshallers.WorkflowExecutionUnmarshaller());
+    }
+
+    @Override
+    public MediaWorkflowExecutionsResponse describeWorkflowExecutions(MediaWorkflowListRequest request) {
+        this.checkCIRequestCommon(request);
+        CosHttpRequest<MediaWorkflowListRequest> httpRequest = this.createRequest(request.getBucketName(), "/workflowexecution", request, HttpMethodName.GET);
+        addParameterIfNotNull(httpRequest, "workflowId", request.getWorkflowId());
+        addParameterIfNotNull(httpRequest, "name", request.getName());
+        addParameterIfNotNull(httpRequest, "orderByTime", request.getOrderByTime());
+        addParameterIfNotNull(httpRequest, "size", request.getSize());
+        addParameterIfNotNull(httpRequest, "states", request.getStates());
+        addParameterIfNotNull(httpRequest, "startCreationTime", request.getStartCreationTime());
+        addParameterIfNotNull(httpRequest, "endCreationTime", request.getEndCreationTime());
+        addParameterIfNotNull(httpRequest, "nextToken", request.getNextToken());
+        return this.invoke(httpRequest, new Unmarshallers.WorkflowExecutionsUnmarshaller());
+    }
+
+    @Override
+    public DocJobResponse createDocProcessJobs(DocJobRequest request) {
+        this.checkCIRequestCommon(request);
+        CosHttpRequest<DocJobRequest> httpRequest = this.createRequest(request.getBucketName(), "/doc_jobs", request, HttpMethodName.POST);
+        this.setContent(httpRequest, RequestXmlFactory.convertToXmlByteArray(request), "application/xml", false);
+        return this.invoke(httpRequest, new Unmarshallers.DocProcessJobUnmarshaller());
+    }
+
+    @Override
+    public DocJobResponse describeDocProcessJob(DocJobRequest request) {
+        this.checkCIRequestCommon(request);
+        CosHttpRequest<DocJobRequest> httpRequest = this.createRequest(request.getBucketName(), "/doc_jobs/" + request.getJobId(), request, HttpMethodName.GET);
+        return this.invoke(httpRequest, new Unmarshallers.DescribeDocJobUnmarshaller());
+    }
+
+    @Override
+    public DocJobListResponse describeDocProcessJobs(DocJobListRequest request) {
+        this.checkCIRequestCommon(request);
+        CosHttpRequest<DocJobListRequest> httpRequest = this.createRequest(request.getBucketName(), "/doc_jobs", request, HttpMethodName.GET);
+        addParameterIfNotNull(httpRequest, "queueId", request.getQueueId());
+        addParameterIfNotNull(httpRequest, "tag", request.getTag());
+        addParameterIfNotNull(httpRequest, "orderByTime", request.getOrderByTime());
+        addParameterIfNotNull(httpRequest, "nextToken", request.getNextToken());
+        addParameterIfNotNull(httpRequest, "size", request.getSize().toString());
+        addParameterIfNotNull(httpRequest, "states", request.getStates());
+        addParameterIfNotNull(httpRequest, "startCreationTime", request.getStartCreationTime());
+        addParameterIfNotNull(httpRequest, "endCreationTime", request.getEndCreationTime());
+        return this.invoke(httpRequest, new Unmarshallers.DescribeDocJobsUnmarshaller());
+    }
+
+    @Override
+    public DocListQueueResponse describeDocProcessQueues(DocQueueRequest docRequest) {
+        this.checkCIRequestCommon(docRequest);
+        CosHttpRequest<DocQueueRequest> request = createRequest(docRequest.getBucketName(), "/docqueue", docRequest, HttpMethodName.GET);
+        addParameterIfNotNull(request, "queueIds", docRequest.getQueueId());
+        addParameterIfNotNull(request, "state", docRequest.getState());
+        addParameterIfNotNull(request, "pageNumber", docRequest.getPageNumber());
+        addParameterIfNotNull(request, "pageSize", docRequest.getPageSize());
+        return invoke(request, new Unmarshallers.DocListQueueUnmarshaller());
+    }
+
+    @Override
+    public boolean updateDocProcessQueue(DocQueueRequest docRequest) {
+        this.checkCIRequestCommon(docRequest);
+        rejectNull(docRequest.getQueueId(),
+                "The queueId parameter must be specified setting the object tags");
+        rejectNull(docRequest.getName(),
+                "The name parameter must be specified setting the object tags");
+        rejectNull(docRequest.getState(),
+                "The state parameter must be specified setting the object tags");
+        CosHttpRequest<DocQueueRequest> request = createRequest(docRequest.getBucketName(), "/docqueue/" + docRequest.getQueueId(), docRequest, HttpMethodName.PUT);
+        this.setContent(request, RequestXmlFactory.convertToXmlByteArray(docRequest), "application/xml", false);
+        invoke(request, voidCosResponseHandler);
+        return true;
+    }
+
+    @Override
+    public DocBucketResponse describeDocProcessBuckets(DocBucketRequest docRequest) {
+        this.checkCIRequestCommon(docRequest);
+        CosHttpRequest<DocBucketRequest> request = createRequest(docRequest.getBucketName(), "/docbucket", docRequest, HttpMethodName.GET);
+        addParameterIfNotNull(request, "regions", docRequest.getRegions());
+        addParameterIfNotNull(request, "bucketNames", docRequest.getBucketNames());
+        addParameterIfNotNull(request, "pageNumber", docRequest.getPageNumber());
+        addParameterIfNotNull(request, "pageSize", docRequest.getPageSize());
+        return invoke(request, new Unmarshallers.DocListBucketUnmarshaller());
+    }
+
+    @Override
+    public CIUploadResult processImage(ImageProcessRequest imageProcessRequest) {
+        rejectNull(imageProcessRequest,
+                "The ImageProcessRequest parameter must be specified when requesting an object's metadata");
+        rejectNull(clientConfig.getRegion(),
+                "region is null, region in clientConfig must be specified when requesting an object's metadata");
+
+        String bucketName = imageProcessRequest.getBucketName();
+        String key = imageProcessRequest.getKey();
+
+        rejectNull(bucketName,
+                "The bucket name parameter must be specified when requesting an object's metadata");
+        rejectNull(key, "The key parameter must be specified when requesting an object's metadata");
+
+        CosHttpRequest<ImageProcessRequest> request =
+                createRequest(bucketName, key, imageProcessRequest, HttpMethodName.POST);
+        request.addParameter("image_process", null);
+        request.addHeader(Headers.PIC_OPERATIONS, Jackson.toJsonString(imageProcessRequest.getPicOperations()));
+        ObjectMetadata returnedMetadata = invoke(request, new ResponseHeaderHandlerChain<>(
+                new Unmarshallers.ImagePersistenceUnmarshaller(), new CosMetadataResponseHandler()));
+        return returnedMetadata.getCiUploadResult();
+    }
+
+    @Override
+    public ImageAuditingResponse imageAuditing(ImageAuditingRequest imageAuditingRequest) {
+        rejectNull(imageAuditingRequest,
+                "The imageAuditingRequest parameter must be specified setting the object tags");
+        rejectNull(imageAuditingRequest.getBucketName(),
+                "The bucketName parameter must be specified setting the object tags");
+        this.checkAuditingRequest(imageAuditingRequest);
+        CosHttpRequest<ImageAuditingRequest> request = createRequest(imageAuditingRequest.getBucketName(), imageAuditingRequest.getObjectKey(), imageAuditingRequest, HttpMethodName.GET);
+        request.addParameter("ci-process", "sensitive-content-recognition");
+        addParameterIfNotNull(request, "detect-type", imageAuditingRequest.getDetectType());
+        return invoke(request, new Unmarshallers.ImageAuditingUnmarshaller());
+    }
+
+    @Override
+    public VideoAuditingResponse createVideoAuditingJob(VideoAuditingRequest videoAuditingRequest) {
+        this.checkCIRequestCommon(videoAuditingRequest);
+        this.rejectStartWith(videoAuditingRequest.getConf().getCallback(), "http", "The Conf.CallBack parameter mush start with http or https");
+        CosHttpRequest<VideoAuditingRequest> request = createRequest(videoAuditingRequest.getBucketName(), "/video/auditing", videoAuditingRequest, HttpMethodName.POST);
+        this.setContent(request, RequestXmlFactory.convertToXmlByteArray(videoAuditingRequest), "application/xml", false);
+        return invoke(request, new Unmarshallers.VideoAuditingUnmarshaller());
+    }
+
+    @Override
+    public VideoAuditingResponse describeAuditingJob(VideoAuditingRequest videoAuditingRequest) {
+        this.checkCIRequestCommon(videoAuditingRequest);
+        rejectNull(videoAuditingRequest.getJobId(),
+                "The jobId parameter must be specified setting the object tags");
+        CosHttpRequest<VideoAuditingRequest> request = createRequest(videoAuditingRequest.getBucketName(), "/video/auditing/" + videoAuditingRequest.getJobId(), videoAuditingRequest, HttpMethodName.GET);
+        return invoke(request, new Unmarshallers.VideoAuditingJobUnmarshaller());
+    }
+
+    @Override
+    public AudioAuditingResponse createAudioAuditingJobs(AudioAuditingRequest audioAuditingRequest) {
+        this.checkCIRequestCommon(audioAuditingRequest);
+        this.rejectStartWith(audioAuditingRequest.getConf().getCallback(), "http", "The Conf.CallBack parameter mush start with http or https");
+        CosHttpRequest<AudioAuditingRequest> request = createRequest(audioAuditingRequest.getBucketName(), "/audio/auditing", audioAuditingRequest, HttpMethodName.POST);
+        this.setContent(request, RequestXmlFactory.convertToXmlByteArray(audioAuditingRequest), "application/xml", false);
+        return invoke(request, new Unmarshallers.AudioAuditingUnmarshaller());
+    }
+
+    @Override
+    public AudioAuditingResponse describeAudioAuditingJob(AudioAuditingRequest audioAuditingRequest) {
+        this.checkCIRequestCommon(audioAuditingRequest);
+        rejectNull(audioAuditingRequest.getJobId(),
+                "The jobId parameter must be specified setting the object tags");
+        CosHttpRequest<AudioAuditingRequest> request = createRequest(audioAuditingRequest.getBucketName(), "/audio/auditing/" + audioAuditingRequest.getJobId(), audioAuditingRequest, HttpMethodName.GET);
+        return invoke(request, new Unmarshallers.AudioAuditingJobUnmarshaller());
+    }
+
+    private void checkAuditingRequest(ImageAuditingRequest request) {
+        rejectNull(request.getDetectType(), "The detectType parameter must be specified setting the object tags");
+        rejectNull(request.getObjectKey(), "The detectType parameter must be specified setting the object tags");
+    }
+
+    private void checkWorkflowParameter(MediaWorkflowRequest request) {
+        rejectNull(request.getName(),
+                "The name parameter must be specified setting the object tags");
+        rejectNull(request.getTopology(),
+                "The topology parameter must be specified setting the object tags");
+        rejectEmpty(request.getTopology().getMediaWorkflowNodes(),
+                "The Nodes parameter must be specified setting the object tags");
+        rejectEmpty(request.getTopology().getMediaWorkflowDependency(),
+                "The Dependency parameter must be specified setting the object tags");
+    }
+
+    private void checkCIRequestCommon(CIServiceRequest request) {
+        rejectNull(request,
+                "The request parameter must be specified setting the object tags");
+        rejectNull(request.getBucketName(),
+                "The bucketName parameter must be specified setting the object tags");
+    }
+
+    private void checkRequestOutput(MediaOutputObject output) {
+        rejectNull(output.getBucket(),
+                "The output.bucket parameter must be specified setting the object tags");
+        rejectNull(output.getRegion(),
+                "The output.region parameter must be specified setting the object tags");
+        rejectNull(output.getObject(),
+                "The output.object parameter must be specified setting the object tags");
+    }
+
+
+    private void checkMediaListJobResponse(MediaListJobResponse response) {
+        List<MediaJobObject> jobsDetailList = response.getJobsDetailList();
+        if (jobsDetailList.size() == 1) {
+            MediaJobObject mediaJobObject = jobsDetailList.get(0);
+            if (mediaJobObject.getQueueId() == null && mediaJobObject.getJobId() == null && mediaJobObject.getCode() == null) {
+                jobsDetailList.clear();
+            }
+        }
+    }
+
+    public URL getObjectUrl(String bucketName, String key) {
+        return getObjectUrl(new GetObjectRequest(bucketName, key));
+    }
+
+    public URL getObjectUrl(String bucketName, String key, String versionId) {
+        return getObjectUrl(new GetObjectRequest(bucketName, key, versionId));
+    }
+
+    public URL getObjectUrl(GetObjectRequest getObjectRequest) {
+        rejectNull(clientConfig.getRegion(),
+                "region is null, region in clientConfig must be specified when generating a pre-signed URL");
+        rejectNull(getObjectRequest, "The request parameter must be specified when generating a pre-signed URL");
+
+        final String bucketName = getObjectRequest.getBucketName();
+        final String key = getObjectRequest.getKey();
+
+        CosHttpRequest<GetObjectRequest> request =
+                createRequest(bucketName, key, getObjectRequest, HttpMethodName.GET);
+
+        addParameterIfNotNull(request, "versionId", getObjectRequest.getVersionId());
+
+        COSCredentials cred = fetchCredential();
+        StringBuilder strBuilder = new StringBuilder();
+        strBuilder.append(clientConfig.getHttpProtocol().toString()).append("://");
+        strBuilder.append(clientConfig.getEndpointBuilder()
+                .buildGeneralApiEndpoint(formatBucket(bucketName, cred.getCOSAppId())));
+        strBuilder.append(UrlEncoderUtils.encodeUrlPath(formatKey(key)));
+
+        boolean hasAppendFirstParameter = false;
+        for (Entry<String, String> entry : request.getParameters().entrySet()) {
+            String paramKey = entry.getKey();
+            String paramValue = entry.getValue();
+
+            if (!hasAppendFirstParameter) {
+                strBuilder.append("?");
+                hasAppendFirstParameter = true;
+            } else {
+                strBuilder.append("&");
+            }
+            strBuilder.append(UrlEncoderUtils.encode(paramKey));
+            if (paramValue != null) {
+                strBuilder.append("=").append(UrlEncoderUtils.encode(paramValue));
+            }
+        }
+
+        try {
+            return new URL(strBuilder.toString());
+        } catch (MalformedURLException e) {
+            throw new CosClientException(e.toString());
+        }
     }
 }
 

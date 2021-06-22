@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.transfer;
 
 import static com.qcloud.cos.event.SDKProgressPublisher.publishProgress;
@@ -12,9 +30,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.qcloud.cos.COS;
 import com.qcloud.cos.COSEncryptionClient;
 import com.qcloud.cos.event.COSProgressPublisher;
@@ -28,6 +43,7 @@ import com.qcloud.cos.model.EncryptedInitiateMultipartUploadRequest;
 import com.qcloud.cos.model.EncryptedPutObjectRequest;
 import com.qcloud.cos.model.InitiateMultipartUploadRequest;
 import com.qcloud.cos.model.ListPartsRequest;
+import com.qcloud.cos.model.ObjectMetadata;
 import com.qcloud.cos.model.PartETag;
 import com.qcloud.cos.model.PartListing;
 import com.qcloud.cos.model.PartSummary;
@@ -36,6 +52,9 @@ import com.qcloud.cos.model.PutObjectResult;
 import com.qcloud.cos.model.UploadPartRequest;
 import com.qcloud.cos.model.UploadResult;
 import com.qcloud.cos.transfer.Transfer.TransferState;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class UploadCallable implements Callable<UploadResult> {
@@ -122,6 +141,8 @@ public class UploadCallable implements Callable<UploadResult> {
         uploadResult.setVersionId(putObjectResult.getVersionId());
         uploadResult.setRequestId(putObjectResult.getRequestId());
         uploadResult.setDateStr(putObjectResult.getDateStr());
+        uploadResult.setCrc64Ecma(putObjectResult.getCrc64Ecma());
+        uploadResult.setCiUploadResult(putObjectResult.getCiUploadResult());
         return uploadResult;
     }
 
@@ -192,9 +213,12 @@ public class UploadCallable implements Callable<UploadResult> {
      */
     void performAbortMultipartUpload() {
         try {
-            if (multipartUploadId != null)
-                cos.abortMultipartUpload(new AbortMultipartUploadRequest(origReq.getBucketName(),
-                        origReq.getKey(), multipartUploadId));
+            if (multipartUploadId != null) {
+                AbortMultipartUploadRequest abortMultipartUploadRequest =
+                        new AbortMultipartUploadRequest(origReq.getBucketName(), origReq.getKey(), multipartUploadId);
+                TransferManagerUtils.populateEndpointAddr(origReq, abortMultipartUploadRequest);
+                cos.abortMultipartUpload(abortMultipartUploadRequest);
+            }
         } catch (Exception e2) {
             log.info(
                     "Unable to abort multipart upload, you may need to manually remove uploaded parts: "
@@ -245,6 +269,22 @@ public class UploadCallable implements Callable<UploadResult> {
                 new CompleteMultipartUploadRequest(origReq.getBucketName(), origReq.getKey(),
                         multipartUploadId, partETags)
                                 .withGeneralProgressListener(origReq.getGeneralProgressListener());
+
+        ObjectMetadata origMeta = origReq.getMetadata();
+        if (origMeta != null) {
+            ObjectMetadata objMeta = req.getObjectMetadata();
+            if (objMeta == null) {
+                objMeta = new ObjectMetadata();
+            }
+
+            objMeta.setUserMetadata(origMeta.getUserMetadata());
+            req.setObjectMetadata(objMeta);
+        }
+        if(origReq.getPicOperations() != null) {
+            req.setPicOperations(origReq.getPicOperations());
+        }
+
+        TransferManagerUtils.populateEndpointAddr(origReq, req);
         CompleteMultipartUploadResult res = cos.completeMultipartUpload(req);
 
         UploadResult uploadResult = new UploadResult();
@@ -254,6 +294,8 @@ public class UploadCallable implements Callable<UploadResult> {
         uploadResult.setVersionId(res.getVersionId());
         uploadResult.setRequestId(res.getRequestId());
         uploadResult.setDateStr(res.getDateStr());
+        uploadResult.setCrc64Ecma(res.getCrc64Ecma());
+        uploadResult.setCiUploadResult(res.getCiUploadResult());
         return uploadResult;
     }
 
@@ -287,9 +329,10 @@ public class UploadCallable implements Callable<UploadResult> {
         int partNumber = 0;
 
         while (true) {
-            PartListing parts = cos.listParts(
-                    new ListPartsRequest(origReq.getBucketName(), origReq.getKey(), uploadId)
-                            .withPartNumberMarker(partNumber));
+            ListPartsRequest listPartsRequest =  new ListPartsRequest(origReq.getBucketName(), origReq.getKey(), uploadId)
+                    .withPartNumberMarker(partNumber);
+            TransferManagerUtils.populateEndpointAddr(origReq, listPartsRequest);
+            PartListing parts = cos.listParts(listPartsRequest);
             for (PartSummary partSummary : parts.getParts()) {
                 partNumbers.put(partSummary.getPartNumber(), partSummary);
             }
@@ -329,6 +372,7 @@ public class UploadCallable implements Callable<UploadResult> {
                 .withSSECOSKeyManagementParams(origReq.getSSECOSKeyManagementParams())
                 .withGeneralProgressListener(origReq.getGeneralProgressListener());
 
+        TransferManagerUtils.populateEndpointAddr(origReq, req);
         String uploadId = cos.initiateMultipartUpload(req).getUploadId();
         log.debug("Initiated new multipart upload: " + uploadId);
 

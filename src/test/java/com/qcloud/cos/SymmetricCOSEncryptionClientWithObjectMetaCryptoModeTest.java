@@ -5,14 +5,14 @@ import java.security.NoSuchAlgorithmException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-
 import com.qcloud.cos.internal.crypto.CryptoConfiguration;
 import com.qcloud.cos.internal.crypto.CryptoMode;
 import com.qcloud.cos.internal.crypto.CryptoStorageMode;
 import com.qcloud.cos.internal.crypto.EncryptionMaterials;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Ignore;
 
 @Ignore
 public class SymmetricCOSEncryptionClientWithObjectMetaCryptoModeTest

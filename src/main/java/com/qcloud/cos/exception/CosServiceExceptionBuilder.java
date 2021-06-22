@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.exception;
 
 import java.util.HashMap;
@@ -23,7 +41,9 @@ public class CosServiceExceptionBuilder {
      */
     private String errorMessage;
 
-    /** The HTTP status code that was returned with this error */
+    /**
+     * The HTTP status code that was returned with this error
+     */
     private int statusCode;
 
     /**
@@ -94,7 +114,6 @@ public class CosServiceExceptionBuilder {
      * Gets Qcloud COS's extended request ID. This ID is required debugging information in the case
      *
      * @return Qcloud COS's extended request ID.
-     *
      */
     public String getTraceId() {
         return traceId;
@@ -122,18 +141,21 @@ public class CosServiceExceptionBuilder {
      * Adds an entry to the additional information map.
      */
     public void addAdditionalDetail(String key, String detail) {
-        if (detail == null || detail.trim().isEmpty())
+        if (detail == null || detail.trim().isEmpty()) {
             return;
+        }
 
         if (this.additionalDetails == null) {
             this.additionalDetails = new HashMap<String, String>();
         }
 
         String additionalContent = this.additionalDetails.get(key);
-        if (additionalContent != null && !additionalContent.trim().isEmpty())
+        if (additionalContent != null && !additionalContent.trim().isEmpty()) {
             detail = additionalContent + "-" + detail;
-        if (!detail.isEmpty())
+        }
+        if (!detail.isEmpty()) {
             additionalDetails.put(key, detail);
+        }
     }
 
     /**
@@ -144,14 +166,12 @@ public class CosServiceExceptionBuilder {
     }
 
     /**
-     * Sets the error response XML received from Cos */
+     * Sets the error response XML received from Cos
+     */
     public void setErrorResponseXml(String errorResponseXml) {
         this.errorResponseXml = errorResponseXml;
     }
 
-    /**
-     * Creates a new CosServiceException object with the values set.
-     */
     /**
      * Creates a new CosServiceException object with the values set.
      */

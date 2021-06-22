@@ -47,7 +47,7 @@ public class BucketReplicationTest extends AbstractCOSClientTest {
 
         ReplicationDestinationConfig replicationDestinationConfig =
                 new ReplicationDestinationConfig();
-        String bucketQCS = "qcs:id/0:cos:ap-guangzhou:appid/1251668577:chengwus3gz";
+        String bucketQCS = "qcs:id/0:cos:ap-chengdu:appid/1251668577:chengwus3cd";
         replicationDestinationConfig.setBucketQCS(bucketQCS);
         replicationDestinationConfig.setStorageClass(StorageClass.Standard);
         replicationRule.setDestinationConfig(replicationDestinationConfig);
@@ -65,7 +65,7 @@ public class BucketReplicationTest extends AbstractCOSClientTest {
         } catch (InterruptedException e) {
             fail(e.toString());
         }
-        
+
         BucketReplicationConfiguration replicaConfigGet =
                 cosclient.getBucketReplicationConfiguration(bucket);
         assertEquals(ruleName, replicaConfigGet.getRoleName());
@@ -76,10 +76,9 @@ public class BucketReplicationTest extends AbstractCOSClientTest {
                 replicationRule2.getDestinationConfig().getStorageClass());
         assertEquals(ReplicationRuleStatus.Enabled.toString(), replicationRule2.getStatus());
         assertEquals(prefix, replicationRule2.getPrefix());
-        
+
         cosclient.deleteBucketReplicationConfiguration(bucket);
     }
-
 
 
 }

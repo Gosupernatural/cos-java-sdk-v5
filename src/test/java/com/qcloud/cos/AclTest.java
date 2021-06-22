@@ -1,25 +1,32 @@
 package com.qcloud.cos;
 
+import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNotNull;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Random;
 
 import com.qcloud.cos.model.AccessControlList;
 import com.qcloud.cos.model.CannedAccessControlList;
+import com.qcloud.cos.model.CreateBucketRequest;
 import com.qcloud.cos.model.Grant;
+import com.qcloud.cos.model.GroupGrantee;
 import com.qcloud.cos.model.Owner;
 import com.qcloud.cos.model.Permission;
 import com.qcloud.cos.model.UinGrantee;
 
 public class AclTest extends AbstractCOSClientTest {
+
     @BeforeClass
     public static void setUpBeforeClass() throws Exception {
         AbstractCOSClientTest.initCosClient();
@@ -28,6 +35,53 @@ public class AclTest extends AbstractCOSClientTest {
     @AfterClass
     public static void tearDownAfterClass() throws Exception {
         AbstractCOSClientTest.destoryCosClient();
+    }
+
+    @Test
+    public void GetAclForNewPubReadBucket() throws InterruptedException {
+        if (!judgeUserInfoValid()) {
+            return;
+        }
+        String aclTestBucketName = null;
+        try {
+            aclTestBucketName = "javasdkacltest-" + appid;
+            CreateBucketRequest createBucketRequest = new CreateBucketRequest(aclTestBucketName);
+            createBucketRequest.setCannedAcl(CannedAccessControlList.PublicRead);
+            cosclient.createBucket(createBucketRequest);
+            AccessControlList aclGet = cosclient.getBucketAcl(aclTestBucketName);
+            assertEquals(aclGet.getCannedAccessControl(), CannedAccessControlList.PublicRead);
+            assertNotNull(aclGet.getOwner());
+            assertNotNull(aclGet.getOwner().getId());
+            assertNotNull(aclGet.getOwner().getDisplayName());
+            
+            assertEquals(2, aclGet.getGrantsAsList().size());
+            Grant firstGrant = aclGet.getGrantsAsList().get(0);
+            assertEquals(Permission.Read.toString(), firstGrant.getPermission().toString());
+            assertTrue(firstGrant.getGrantee() instanceof GroupGrantee);
+            
+            Grant secondGrant = aclGet.getGrantsAsList().get(1);
+            assertEquals(Permission.FullControl.toString(), secondGrant.getPermission().toString());
+            assertTrue(secondGrant.getGrantee() instanceof UinGrantee);
+
+            // set to PublicReadWrite acl and get canned acl compare
+            Thread.sleep(5000);
+            cosclient.setBucketAcl(aclTestBucketName, CannedAccessControlList.PublicReadWrite);
+            aclGet = cosclient.getBucketAcl(aclTestBucketName);
+            assertEquals(aclGet.getCannedAccessControl(), CannedAccessControlList.PublicReadWrite);
+
+            // set to private and get canned acl compare
+            Thread.sleep(5000);
+            cosclient.setBucketAcl(aclTestBucketName, CannedAccessControlList.Private);
+            aclGet = cosclient.getBucketAcl(aclTestBucketName);
+            assertEquals(aclGet.getCannedAccessControl(), CannedAccessControlList.Private);
+
+        } finally {
+            if (aclTestBucketName != null) {
+                cosclient.deleteBucket(aclTestBucketName);
+                aclTestBucketName = null;
+            }
+        }
+
     }
 
     @Test
@@ -59,7 +113,7 @@ public class AclTest extends AbstractCOSClientTest {
         }
         cosclient.setBucketAcl(bucket, CannedAccessControlList.Private);
         AccessControlList acl = cosclient.getBucketAcl(bucket);
-        
+
     }
 
     @Test
@@ -93,7 +147,7 @@ public class AclTest extends AbstractCOSClientTest {
     }
 
     @Test
-    public void setObjectCannedAclTest() throws IOException {
+    public void setObjectCannedAclTest() throws IOException, InterruptedException {
         if (!judgeUserInfoValid()) {
             return;
         }
@@ -102,11 +156,15 @@ public class AclTest extends AbstractCOSClientTest {
         putObjectFromLocalFile(localFile, key);
         try {
             cosclient.setObjectAcl(bucket, key, CannedAccessControlList.PublicRead);
-            cosclient.getObjectAcl(bucket, key);
-            
+            AccessControlList accessControlList = cosclient.getObjectAcl(bucket, key);
+            assertEquals(accessControlList.getCannedAccessControl(), CannedAccessControlList.PublicRead);
+            cosclient.setObjectAcl(bucket, key, CannedAccessControlList.Private);
+            accessControlList = cosclient.getObjectAcl(bucket, key);
+            assertEquals(accessControlList.getCannedAccessControl(), CannedAccessControlList.Private);
             cosclient.setObjectAcl(bucket, key, CannedAccessControlList.Default);
-            cosclient.getObjectAcl(bucket, key);
-            
+            accessControlList = cosclient.getObjectAcl(bucket, key);
+            assertEquals(accessControlList.getCannedAccessControl(), CannedAccessControlList.Default);
+
         } finally {
             assertTrue(localFile.delete());
             clearObject(key);

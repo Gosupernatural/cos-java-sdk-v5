@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.transfer;
 
 import static com.qcloud.cos.event.SDKProgressPublisher.publishProgress;
@@ -26,6 +44,7 @@ import com.qcloud.cos.model.ObjectMetadata;
 import com.qcloud.cos.model.PartETag;
 import com.qcloud.cos.region.Region;
 import com.qcloud.cos.transfer.Transfer.TransferState;
+import com.qcloud.cos.Headers;
 
 public class CopyCallable implements Callable<CopyResult> {
 
@@ -84,15 +103,21 @@ public class CopyCallable implements Callable<CopyResult> {
     public boolean isMultipartCopy() {
         Region sourceRegion = copyObjectRequest.getSourceBucketRegion();
         Region destRegion = cos.getClientConfig().getRegion();
-        // 如果没有设置source region, 表示使用的和clientconfig里面同一region, 这里不适用分块copy，使用put object copy即可
-        if (sourceRegion == null) {
-            return false;
-        } else {
-            // 如果设置了source region, 且和目的region相同, 则也是用put object copy.
-            if (sourceRegion.equals(destRegion)) {
+        String sourceStorageClass = (String)metadata.getRawMetadataValue(Headers.STORAGE_CLASS);
+        String destStorageClass = copyObjectRequest.getStorageClass();
+        if(sourceStorageClass == null) {
+            sourceStorageClass = "Standard";
+        }
+
+        // 如果源和目的对象的存储类型相同
+        if(sourceStorageClass.equalsIgnoreCase(destStorageClass)) {
+            // 如果没有设置source region, 表示使用的和clientconfig里面同一region,
+            // 或者设置了相同的region，使用put object copy即可
+            if(sourceRegion == null || sourceRegion.equals(destRegion)) {
                 return false;
             }
         }
+
         return (metadata.getContentLength() > configuration.getMultipartCopyThreshold());
     }
 
@@ -128,6 +153,7 @@ public class CopyCallable implements Callable<CopyResult> {
         copyResult.setVersionId(copyObjectResult.getVersionId());
         copyResult.setRequestId(copyObjectResult.getRequestId());
         copyResult.setDateStr(copyObjectResult.getDateStr());
+        copyResult.setCrc64Ecma(copyObjectResult.getCrc64Ecma());
         return copyResult;
     }
 
@@ -200,6 +226,7 @@ public class CopyCallable implements Callable<CopyResult> {
         }
 
         req.setObjectMetadata(newObjectMetadata);
+        TransferManagerUtils.populateEndpointAddr(origReq, req);
 
         String uploadId = cos.initiateMultipartUpload(req).getUploadId();
         log.debug("Initiated new multipart upload: " + uploadId);
@@ -213,6 +240,7 @@ public class CopyCallable implements Callable<CopyResult> {
             AbortMultipartUploadRequest abortRequest =
                     new AbortMultipartUploadRequest(copyObjectRequest.getDestinationBucketName(),
                             copyObjectRequest.getDestinationKey(), multipartUploadId);
+            TransferManagerUtils.populateEndpointAddr(copyObjectRequest, abortRequest);
             cos.abortMultipartUpload(abortRequest);
         } catch (Exception e) {
             log.info(

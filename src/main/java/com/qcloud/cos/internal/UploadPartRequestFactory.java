@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.internal;
 
 import java.io.File;
@@ -30,6 +48,10 @@ public class UploadPartRequestFactory {
     private long remainingBytes;
     private SSECustomerKey sseCustomerKey;
     private final int totalNumberOfParts;
+    /**
+     * traffic limit speed in second, the unit is bit/s
+     */
+    private int trafficLimit = 0;
 
     /**
      * Wrapped to provide necessary mark-and-reset support for the underlying
@@ -52,6 +74,7 @@ public class UploadPartRequestFactory {
         if (origReq.getInputStream() != null) {
             wrappedStream = ReleasableInputStream.wrap(origReq.getInputStream());
         }
+        this.trafficLimit = origReq.getTrafficLimit();
     }
 
     public synchronized boolean hasMoreRequests() {
@@ -70,7 +93,8 @@ public class UploadPartRequestFactory {
                 .withUploadId(uploadId)
                 .withInputStream(new InputSubstream(wrappedStream, 0, partSize, isLastPart))
                 .withPartNumber(partNumber++)
-                .withPartSize(partSize);
+                .withPartSize(partSize)
+                .withTrafficLimit(trafficLimit);
         } else {
             req = new UploadPartRequest()
                 .withBucketName(bucketName)
@@ -79,11 +103,13 @@ public class UploadPartRequestFactory {
                 .withFile(file)
                 .withFileOffset(offset)
                 .withPartNumber(partNumber++)
-                .withPartSize(partSize);
+                .withPartSize(partSize)
+                .withTrafficLimit(trafficLimit);
         }
         TransferManager.appendMultipartUserAgent(req);
 
         if (sseCustomerKey != null) req.setSSECustomerKey(sseCustomerKey);
+        TransferManagerUtils.populateEndpointAddr(origReq, req);
 
         offset += partSize;
         remainingBytes -= partSize;

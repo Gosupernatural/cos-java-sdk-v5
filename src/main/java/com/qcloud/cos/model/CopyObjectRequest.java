@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.model;
 
 import java.io.Serializable;
@@ -5,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import com.qcloud.cos.endpoint.EndpointBuilder;
 import com.qcloud.cos.internal.CosServiceRequest;
 import com.qcloud.cos.region.Region;
 
@@ -28,6 +47,11 @@ public class CopyObjectRequest extends CosServiceRequest
      * the most recent version of the source object will be copied.
      */
     private String sourceVersionId;
+    
+    /**
+     * source endpoint builder to generate the source endpoint.
+     */
+    private EndpointBuilder sourceEndpointBuilder;
 
     /** The name of the bucket to contain the copy of the source object */
     private String destinationBucketName;
@@ -99,8 +123,7 @@ public class CopyObjectRequest extends CosServiceRequest
 
     private SSECOSKeyManagementParams sseCOSKeyManagementParams;
 
-    // set copy source endpoint suffix
-    private String sourceEndpointSuffix;
+    private String metadataDirective;
 
     /**
      * <p>
@@ -937,11 +960,7 @@ public class CopyObjectRequest extends CosServiceRequest
         this.destinationSSECustomerKey = destinationSSECustomerKey;
     }
 
-    public SSECOSKeyManagementParams getSseCOSKeyManagementParams() {
-        return sseCOSKeyManagementParams;
-    }
-
-    public void setSseCOSKeyManagementParams(SSECOSKeyManagementParams sseCOSKeyManagementParams) {
+    public void setSSECOSKeyManagementParams(SSECOSKeyManagementParams sseCOSKeyManagementParams) {
         this.sseCOSKeyManagementParams = sseCOSKeyManagementParams;
     }
 
@@ -950,11 +969,38 @@ public class CopyObjectRequest extends CosServiceRequest
         return this.sseCOSKeyManagementParams;
     }
 
-    public String getSourceEndpointSuffix() {
-        return sourceEndpointSuffix;
+    public EndpointBuilder getSourceEndpointBuilder() {
+        return sourceEndpointBuilder;
     }
 
-    public void setSourceEndpointSuffix(String sourceEndpointSuffix) {
-        this.sourceEndpointSuffix = sourceEndpointSuffix;
+    public void setSourceEndpointBuilder(EndpointBuilder sourceEndpointBuilder) {
+        this.sourceEndpointBuilder = sourceEndpointBuilder;
+    }
+
+    /**
+     * Specifies whether the metadata is copied from the source object or replaced with metadata provided in the request.
+     */
+    public String getMetadataDirective() {
+        return metadataDirective;
+    }
+
+    /**
+     * Specifies whether the metadata is copied from the source object or replaced with metadata provided in the request.
+     *
+     * @param metadataDirective New value for the metadata directive.
+     */
+    public void setMetadataDirective(String metadataDirective) {
+        this.metadataDirective = metadataDirective;
+    }
+
+    /**
+     * Specifies whether the metadata is copied from the source object or replaced with metadata provided in the request.
+     *
+     * @param metadataDirective New value for the metadata directive.
+     * @return Returns a reference to this object so that method calls can be chained together.
+     */
+    public CopyObjectRequest withMetadataDirective(String metadataDirective) {
+        setMetadataDirective(metadataDirective);
+        return this;
     }
 }

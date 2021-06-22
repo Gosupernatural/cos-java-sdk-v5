@@ -1,3 +1,21 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ 
+ * According to cos feature, we modify some class，comment, field name, etc.
+ */
+
+
 package com.qcloud.cos.model;
 
 /**
@@ -27,7 +45,29 @@ public enum Permission {
      * This permission is not supported for objects.
      * </p>
      */
-    Write("WRITE", "x-cos-grant-write");
+    Write("WRITE", "x-cos-grant-write"),
+
+    /**
+     * Grants permission to read the ACL for the applicable bucket or object.
+     * <p>
+     * The owner of a bucket or object always implicitly has this permission.
+     * </p>
+     */
+    ReadAcp("READ_ACP", "x-cos-grant-read-acp"),
+
+    /**
+     * Gives permission to overwrite the ACP for the applicable bucket or
+     * object.
+     * <p>
+     * The owner of a bucket or object always has this permission implicitly.
+     * </p>
+     * <p>
+     * Granting this permission is equivalent to granting <code>FULL_CONTROL</code>because
+     * the grant recipient can make any changes to the ACP.
+     * </p>
+     */
+    WriteAcp("WRITE_ACP", "x-cos-grant-write-acp");
+
 
     private String permissionString;
     private String headerName;
